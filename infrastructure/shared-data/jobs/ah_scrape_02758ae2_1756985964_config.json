@@ -1,0 +1,10 @@
+{
+  "job_id": "ah_scrape_02758ae2_1756985964",
+  "max_products": 1000,
+  "categories_limit": null,
+  "output_file": "/app/results/ah_scrape_02758ae2_1756985964_products.json",
+  "progress_file": "/app/jobs/ah_scrape_02758ae2_1756985964_progress.json",
+  "complete_flag": "/app/jobs/ah_scrape_02758ae2_1756985964_complete.flag",
+  "log_file": "/app/logs/ah_scrape_02758ae2_1756985964.log",
+  "webhook_url": "http://n8n:5678/webhook/scraper-complete"
+}

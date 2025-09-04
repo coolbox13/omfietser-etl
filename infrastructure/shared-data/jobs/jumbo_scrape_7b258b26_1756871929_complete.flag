@@ -1,0 +1,11 @@
+{
+    "completed_at": "2025-09-03T03:58:53.133320+00:00",
+    "total_products": 120,
+    "duration_seconds": 2.9327895641326904,
+    "products_per_second": 40.91667587322701,
+    "optimization_version": "phase2b_deep_pagination",
+    "batch_size_used": 100,
+    "improvement_factor": 557.9546709985501,
+    "deep_pagination_method": "bbq_category_focus",
+    "max_offset_reached": "logged_in_category_method"
+}

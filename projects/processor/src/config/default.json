@@ -1,0 +1,49 @@
+{
+  "directories": {
+    "input": "data_in",
+    "output": "data_out",
+    "intermediate": "processed_data",
+    "logs": "logs"
+  },
+  "shops": {
+    "ah": {
+      "inputFile": "ah_products.json",
+      "webshopId": 1
+    },
+    "jumbo": {
+      "inputFile": "jumbo_products.json",
+      "webshopId": 2
+    },
+    "aldi": {
+      "inputFile": "aldi_products.json",
+      "webshopId": 3
+    },
+    "plus": {
+      "inputFile": "plus_products.json",
+      "webshopId": 4
+    }
+  },
+  "processing": {
+    "batchSize": 100,
+    "parallelProcessing": true,
+    "retryAttempts": 3
+  },
+  "output": {
+    "createBackups": true,
+    "compressionEnabled": false,
+    "prettyPrint": true
+  },
+  "logging": {
+    "level": "info",
+    "consoleOutput": false,
+    "fileOutput": true,
+    "cleanupOnStartup": true,
+    "retentionDays": 7
+  },
+  "enrichment": {
+    "enabled": true,
+    "standardizeQuantities": true,
+    "calculatePricePerUnit": true,
+    "calculateDiscounts": true
+  }
+}

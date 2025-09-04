@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://supermarket-processor.com/schemas/unified-product.json",
+  "title": "Unified Product Structure",
+  "description": "Definitive schema for all supermarket processor outputs. ALL fields required - no omissions allowed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "unified_id",
+    "shop_type",
+    "title", 
+    "main_category",
+    "brand",
+    "image_url",
+    "sales_unit_size",
+    "quantity_amount",
+    "quantity_unit",
+    "default_quantity_amount",
+    "default_quantity_unit",
+    "price_before_bonus",
+    "current_price",
+    "unit_price",
+    "unit_price_unit",
+    "is_promotion",
+    "promotion_type",
+    "promotion_mechanism",
+    "promotion_start_date",
+    "promotion_end_date",
+    "parsed_promotion_effective_unit_price",
+    "parsed_promotion_required_quantity",
+    "parsed_promotion_total_price",
+    "parsed_promotion_is_multi_purchase_required",
+    "normalized_quantity_amount",
+    "normalized_quantity_unit",
+    "conversion_factor",
+    "price_per_standard_unit",
+    "current_price_per_standard_unit",
+    "discount_absolute",
+    "discount_percentage",
+    "is_active"
+  ],
+  "properties": {
+    "unified_id": {
+      "type": "string",
+      "description": "Unique identifier for the product across all shops",
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "shop_type": {
+      "type": "string",
+      "description": "Shop type identifier",
+      "enum": ["ah", "jumbo", "aldi", "plus", "kruidvat"],
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "description": "Product title/name",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "main_category": {
+      "type": ["string", "null"],
+      "description": "Main product category",
+      "maxLength": 200
+    },
+    "brand": {
+      "type": "string", 
+      "description": "Product brand name",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Product image URL (empty string if none)",
+      "format": "uri",
+      "maxLength": 2048
+    },
+    "sales_unit_size": {
+      "type": "string",
+      "description": "Sales unit size description (e.g., '500ml', '1kg')",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "quantity_amount": {
+      "type": "number",
+      "description": "Base quantity amount",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "quantity_unit": {
+      "type": "string",
+      "description": "Base quantity unit",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "default_quantity_amount": {
+      "type": ["number", "null"],
+      "description": "Default quantity amount for ordering",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "default_quantity_unit": {
+      "type": ["string", "null"],
+      "description": "Default quantity unit for ordering",
+      "maxLength": 50
+    },
+    "price_before_bonus": {
+      "type": "number",
+      "description": "Original price before any discounts",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "current_price": {
+      "type": "number", 
+      "description": "Current selling price (after discounts)",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "unit_price": {
+      "type": ["number", "null"],
+      "description": "Unit price value",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "unit_price_unit": {
+      "type": ["string", "null"],
+      "description": "Unit price unit",
+      "maxLength": 50
+    },
+    "is_promotion": {
+      "type": "boolean",
+      "description": "Whether product is currently on promotion"
+    },
+    "promotion_type": {
+      "type": "string",
+      "description": "Type of promotion",
+      "enum": ["none", "discount", "bonus", "multi_buy", "bundle", "loyalty", "temporary_price", "other"],
+      "maxLength": 100
+    },
+    "promotion_mechanism": {
+      "type": "string",
+      "description": "Promotion mechanism description",
+      "maxLength": 500
+    },
+    "promotion_start_date": {
+      "type": ["string", "null"],
+      "description": "Promotion start date (ISO string)",
+      "format": "date-time"
+    },
+    "promotion_end_date": {
+      "type": ["string", "null"],
+      "description": "Promotion end date (ISO string)",
+      "format": "date-time"
+    },
+    "parsed_promotion_effective_unit_price": {
+      "type": ["number", "null"],
+      "description": "Calculated effective unit price with promotion",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "parsed_promotion_required_quantity": {
+      "type": ["number", "null"],
+      "description": "Required quantity for promotion",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "parsed_promotion_total_price": {
+      "type": ["number", "null"],
+      "description": "Total price with promotion",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "parsed_promotion_is_multi_purchase_required": {
+      "type": ["boolean", "null"],
+      "description": "Whether promotion requires multiple purchase"
+    },
+    "normalized_quantity_amount": {
+      "type": ["number", "null"],
+      "description": "Normalized quantity amount for comparison",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "normalized_quantity_unit": {
+      "type": ["string", "null"],
+      "description": "Normalized quantity unit for comparison",
+      "maxLength": 50
+    },
+    "conversion_factor": {
+      "type": ["number", "null"],
+      "description": "Conversion factor to standard units",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "price_per_standard_unit": {
+      "type": ["number", "null"],
+      "description": "Price per standard unit (original)",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "current_price_per_standard_unit": {
+      "type": ["number", "null"],
+      "description": "Current price per standard unit (with discounts)",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "discount_absolute": {
+      "type": ["number", "null"],
+      "description": "Absolute discount amount",
+      "minimum": 0,
+      "maximum": 999999
+    },
+    "discount_percentage": {
+      "type": ["number", "null"],
+      "description": "Percentage discount",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Whether product is currently available"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/v1/settings.json",
+  "instructions": [
+    "You are the processor-specific Claude Code instance for the containerized supermarket product processor.",
+    "Your focus areas:",
+    "- TypeScript development and debugging",
+    "- Database adapter and PostgreSQL integration",
+    "- API endpoint development with Express.js",
+    "- Structure template validation and compliance",
+    "- Shop-specific processor logic (AH, Jumbo, Aldi, Plus)",
+    "- Unit testing with Jest",
+    "- CLI interface development",
+    "",
+    "This processor enforces strict 32-field structure compliance across all shop types.",
+    "It runs containerized and integrates with N8N workflows via webhook endpoints.",
+    "",
+    "Key components:",
+    "- src/processors/: Shop-specific processing logic",
+    "- src/core/structure/: Structure template and validation system", 
+    "- src/api/: HTTP API with Express.js for N8N integration",
+    "- src/cli/: Command-line interface for debugging",
+    "- src/adapters/: Database integration adapters",
+    "- src/infrastructure/: Database connection and types",
+    "",
+    "For Docker orchestration or cross-project issues, refer to root-level Claude Code instance."
+  ],
+  "directories": [
+    "."
+  ],
+  "autoApprove": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(jest:*)",
+      "Bash(tsc:*)",
+      "Read(/Users/hermanhello/Documents/a_omfietser/omfietser-etl/projects/processor/**)"
+    ],
+    "deny": [
+      "Bash(docker:*)",
+      "Bash(rm:*)"
+    ],
+    "ask": []
+  }
+}

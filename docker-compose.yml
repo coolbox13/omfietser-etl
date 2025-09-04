@@ -1,0 +1,250 @@
+version: '3.8'
+
+networks:
+  omfietser_etl_network:
+    driver: bridge
+    name: omfietser_etl_stack
+
+volumes:
+  postgres_data:
+    name: omfietser_etl_postgres_data
+  n8n_data:
+    name: omfietser_etl_n8n_data
+  prometheus_data:
+    name: omfietser_etl_prometheus_data
+
+services:
+  # =================================
+  # DATABASE
+  # =================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: omfietser_etl_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+      POSTGRES_MULTIPLE_DATABASES: n8n_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - omfietser_etl_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-etl_user} -d ${POSTGRES_DB:-omfietser_etl}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =================================
+  # N8N WORKFLOW ENGINE
+  # =================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: omfietser_etl_n8n
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n_db
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-etl_user}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+      N8N_BASIC_AUTH_ACTIVE: true
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-changeme}
+      WEBHOOK_URL: http://localhost:5678
+      GENERIC_TIMEZONE: ${TIMEZONE:-Europe/Amsterdam}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflows:/home/node/workflows
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  # =================================
+  # SUPERMARKET PROCESSOR
+  # =================================
+  processor:
+    build: 
+      context: ./projects/processor
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_processor
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${PROCESSOR_NODE_ENV:-production}
+      PORT: ${PROCESSOR_PORT:-4000}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+      SCHEMA_VERSION: 1.0.0
+      LOG_LEVEL: ${PROCESSOR_LOG_LEVEL:-info}
+      BATCH_SIZE: ${PROCESSOR_BATCH_SIZE:-100}
+    ports:
+      - "${PROCESSOR_PORT:-4000}:${PROCESSOR_PORT:-4000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PROCESSOR_PORT:-4000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =================================
+  # SCRAPERS
+  # =================================
+  ah-scraper:
+    build: 
+      context: ./projects/scrapers/ah-scraper
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_ah_scraper
+    restart: unless-stopped
+    environment:
+      SCRAPER_TYPE: ah
+      API_PORT: ${SCRAPER_AH_PORT:-8001}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "${SCRAPER_AH_PORT:-8001}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  jumbo-scraper:
+    build: 
+      context: ./projects/scrapers/jumbo-scraper
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_jumbo_scraper
+    restart: unless-stopped
+    environment:
+      SCRAPER_TYPE: jumbo
+      API_PORT: ${SCRAPER_JUMBO_PORT:-8002}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "${SCRAPER_JUMBO_PORT:-8002}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  aldi-scraper:
+    build: 
+      context: ./projects/scrapers/aldi-scraper
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_aldi_scraper
+    restart: unless-stopped
+    environment:
+      SCRAPER_TYPE: aldi
+      API_PORT: ${SCRAPER_ALDI_PORT:-8004}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "${SCRAPER_ALDI_PORT:-8004}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  plus-scraper:
+    build: 
+      context: ./projects/scrapers/plus-scraper
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_plus_scraper
+    restart: unless-stopped
+    environment:
+      SCRAPER_TYPE: plus
+      API_PORT: ${SCRAPER_PLUS_PORT:-8003}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "${SCRAPER_PLUS_PORT:-8003}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  kruidvat-scraper:
+    build: 
+      context: ./projects/scrapers/kruidvat-scraper
+      dockerfile: Dockerfile
+    container_name: omfietser_etl_kruidvat_scraper
+    restart: unless-stopped
+    environment:
+      SCRAPER_TYPE: kruidvat
+      API_PORT: ${SCRAPER_KRUIDVAT_PORT:-8005}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-omfietser_etl}
+      POSTGRES_USER: ${POSTGRES_USER:-etl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    ports:
+      - "${SCRAPER_KRUIDVAT_PORT:-8005}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - omfietser_etl_network
+
+  # =================================
+  # MONITORING (Optional)
+  # =================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: omfietser_etl_prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - omfietser_etl_network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: omfietser_etl_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ./infrastructure/monitoring/grafana:/var/lib/grafana
+    networks:
+      - omfietser_etl_network
+    profiles:
+      - monitoring

@@ -1,0 +1,18 @@
+{
+    "completed_at": "2025-08-21T07:42:42.576183+00:00",
+    "total_products": 105,
+    "duration_seconds": 1.5496938228607178,
+    "products_per_second": 67.75531943863024,
+    "requests_per_minute": 580.759880902545,
+    "optimization_version": "ultra_fixed_v1",
+    "page_size_used": 100,
+    "fixed_interval": 0.05,
+    "high_semaphore": 15,
+    "concurrent_categories": 8,
+    "total_requests": 15,
+    "success_rate": 1.0,
+    "auth_refreshes": 0,
+    "improvement_vs_original": 508.1648957897268,
+    "improvement_vs_previous_ultra": 7.971214051603558,
+    "all_fixes_applied": true
+}

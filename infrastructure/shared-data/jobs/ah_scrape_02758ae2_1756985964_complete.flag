@@ -1,0 +1,11 @@
+{
+    "completed_at": "2025-09-04T11:39:26.422115+00:00",
+    "total_products": 1000,
+    "duration_seconds": 1.8935742378234863,
+    "products_per_second": 528.1018193136282,
+    "categories_processed": 27,
+    "total_categories": 27,
+    "max_products_limit": 1000,
+    "scraper_version": "ah_v2.0",
+    "job_id": "ah_scrape_02758ae2_1756985964"
+}

@@ -1,0 +1,13 @@
+{
+    "completed_at": "2025-08-21T07:43:20.337587+00:00",
+    "total_products": 100,
+    "duration_seconds": 19.629034757614136,
+    "products_per_second": 5.094494010267613,
+    "optimization_version": "ultra_optimized_v1",
+    "concurrency_used": 15,
+    "delay_used": 0.0,
+    "total_requests": 162,
+    "success_rate": 1.0,
+    "improvement_vs_original": 0.36389242930482946,
+    "ultra_optimization_method": "concurrency15_delay0.0"
+}

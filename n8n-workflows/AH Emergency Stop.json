@@ -1,0 +1,108 @@
+{
+  "name": "AH Emergency Stop",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "🛑 STOP AH SCRAPER",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://ah-scraper-api:8000/jobs",
+        "options": {}
+      },
+      "id": "get-jobs",
+      "name": "Get Running Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        304,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $json;\nlet runningJob = null;\n\nif (Array.isArray(jobs)) {\n  runningJob = jobs.find(job => job.status === 'running' || job.status === 'queued');\n}\n\nif (!runningJob) {\n  throw new Error('No running AH jobs to stop');\n}\n\nreturn [{ json: { job_id: runningJob.job_id, status: runningJob.status } }];"
+      },
+      "id": "find-running",
+      "name": "Find Running Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://ah-scraper-api:8000/jobs/{{$json.job_id}}",
+        "options": {}
+      },
+      "id": "cancel-job",
+      "name": "Cancel Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        704,
+        304
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🛑 STOP AH SCRAPER": {
+      "main": [
+        [
+          {
+            "node": "Get Running Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Running Jobs": {
+      "main": [
+        [
+          {
+            "node": "Find Running Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Running Job": {
+      "main": [
+        [
+          {
+            "node": "Cancel Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "versionId": "dcb91d7c-8e95-45be-abff-08da1cbda4ab",
+  "meta": {
+    "instanceId": "ff86f1271f3774b5ec7ae16a0c838a4eb5e655bdb89bad020914df6993bd2aac"
+  },
+  "id": "1Gj0LXPbdLigYQTm",
+  "tags": []
+}

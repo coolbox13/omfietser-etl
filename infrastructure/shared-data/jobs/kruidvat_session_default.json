@@ -1,0 +1,13 @@
+{
+    "token": {
+        "access_token": "ckx4JhDMpE7_CmQWJMtbcE2XSxw",
+        "token_type": "bearer",
+        "expires_in": 39907,
+        "scope": "basic openid",
+        "token_auth_type": "GUEST",
+        "expires_at": 1755802022.6172316
+    },
+    "timestamp": 1755762115.6172338,
+    "timestamp_amsterdam": "2025-08-21 07:41:55 CET",
+    "optimization_version": "optimized_v1"
+}

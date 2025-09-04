@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/v1/settings.json",
+  "instructions": [
+    "You are the root-level orchestration Claude Code instance for the Omfietser ETL monorepo.",
+    "Your focus areas:",
+    "- Docker and Docker Compose orchestration",
+    "- Cross-project integration and deployment",
+    "- Infrastructure management (PostgreSQL, monitoring, networking)",
+    "- Environment configuration and secrets management",
+    "- CI/CD pipeline configuration",
+    "- Documentation coordination across projects",
+    "",
+    "For project-specific development (processor TypeScript, scraper Python), defer to specialized Claude Code instances in project subdirectories.",
+    "",
+    "This monorepo contains:",
+    "- projects/processor: Containerized supermarket product processor (TypeScript)",
+    "- projects/scrapers: N8N-ready scrapers for multiple supermarket chains (Python)",
+    "- infrastructure: Shared database, monitoring, networking components",
+    "- n8n-workflows: N8N workflow orchestration definitions"
+  ],
+  "directories": [
+    "."
+  ],
+  "autoApprove": {
+    "allow": [
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(curl:*)",
+      "Read(/Users/hermanhello/Documents/a_omfietser/omfietser-etl/**)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(sudo:*)"
+    ],
+    "ask": []
+  }
+}

@@ -1,0 +1,36 @@
+# FastAPI and ASGI server - Latest versions
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# HTTP client - matching working environment 
+aiohttp==3.12.13
+aiofiles>=24.0.0
+brotli>=1.1.0
+
+# Background tasks and async support
+asyncio-mqtt>=0.16.0
+
+# Data validation and serialization
+pydantic>=2.10.0
+
+# JSON handling and utilities
+orjson>=3.10.0
+
+# Logging and monitoring
+structlog>=24.0.0
+
+# File handling and utilities
+python-multipart>=0.0.20
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Date and time utilities
+python-dateutil>=2.9.0
+pytz>=2024.2
+
+# HTTP client alternatives
+httpx>=0.28.0
+
+# System utilities
+psutil>=6.1.0

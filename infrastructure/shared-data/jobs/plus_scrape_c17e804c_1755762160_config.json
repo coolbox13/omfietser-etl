@@ -1,0 +1,10 @@
+{
+    "job_id": "plus_scrape_c17e804c_1755762160",
+    "max_products": 100,
+    "categories_limit": null,
+    "output_file": "/app/results/plus_scrape_c17e804c_1755762160_products.json",
+    "progress_file": "/app/jobs/plus_scrape_c17e804c_1755762160_progress.json",
+    "complete_flag": "/app/jobs/plus_scrape_c17e804c_1755762160_complete.flag",
+    "log_file": "/app/logs/plus_scrape_c17e804c_1755762160.log",
+    "webhook_url": "http://n8n:5678/webhook/scraper-complete"
+}

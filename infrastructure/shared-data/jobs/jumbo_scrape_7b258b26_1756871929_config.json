@@ -1,0 +1,10 @@
+{
+  "job_id": "jumbo_scrape_7b258b26_1756871929",
+  "max_products": 100,
+  "categories_limit": null,
+  "output_file": "/app/results/jumbo_scrape_7b258b26_1756871929_products.json",
+  "progress_file": "/app/jobs/jumbo_scrape_7b258b26_1756871929_progress.json",
+  "complete_flag": "/app/jobs/jumbo_scrape_7b258b26_1756871929_complete.flag",
+  "log_file": "/app/logs/jumbo_scrape_7b258b26_1756871929.log",
+  "webhook_url": null
+}

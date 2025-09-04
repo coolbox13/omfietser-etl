@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/v1/settings.json",
+  "instructions": [
+    "You are the scrapers-specific Claude Code instance for the N8N-ready supermarket scrapers.",
+    "Your focus areas:",
+    "- Python development with FastAPI/Uvicorn",
+    "- Web scraping logic for supermarket APIs", 
+    "- Data extraction and transformation",
+    "- API endpoint development for N8N integration",
+    "- Docker containerization of scraper services",
+    "- Database integration for storing raw product data",
+    "- Error handling and retry logic for scraping operations",
+    "",
+    "Available scrapers:",
+    "- ah-scraper: Albert Heijn scraper API",
+    "- jumbo-scraper: Jumbo supermarket scraper API", 
+    "- aldi-scraper: Aldi supermarket scraper API",
+    "- plus-scraper: Plus supermarket scraper API",
+    "- kruidvat-scraper: Kruidvat pharmacy scraper API",
+    "",
+    "Each scraper runs as an independent FastAPI service that can be triggered by N8N workflows.",
+    "They extract product data and store it in the shared PostgreSQL database for processing.",
+    "",
+    "For Docker orchestration or cross-project integration, refer to root-level Claude Code instance."
+  ],
+  "directories": [
+    "."
+  ],
+  "autoApprove": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pip:*)",
+      "Bash(uvicorn:*)",
+      "Bash(pytest:*)",
+      "Read(/Users/hermanhello/Documents/a_omfietser/omfietser-etl/projects/scrapers/**)"
+    ],
+    "deny": [
+      "Bash(docker:*)",
+      "Bash(rm:*)"
+    ],
+    "ask": []
+  }
+}

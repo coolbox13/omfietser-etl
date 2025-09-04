@@ -1,0 +1,37 @@
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# HTTP client for scraping
+aiohttp==3.9.1
+requests==2.31.0
+
+# Background tasks and async support
+asyncio-mqtt==0.13.0
+
+# Data validation and serialization
+pydantic==2.5.0
+
+# JSON handling and utilities
+orjson==3.9.10
+
+# Logging and monitoring
+structlog==23.2.0
+
+# File handling and utilities
+python-multipart==0.0.6
+
+# Environment variable management
+python-dotenv==1.0.0
+
+# Date and time utilities
+python-dateutil==2.8.2
+
+# UUID and random utilities
+uuid==1.30
+
+# HTTP status codes
+httpx==0.25.2
+
+# Progress monitoring (keep existing if you have custom progress_monitor.py)
+# Add your custom dependencies here if needed

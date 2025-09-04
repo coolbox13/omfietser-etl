@@ -1,0 +1,10 @@
+{
+    "job_id": "kruidvat_scrape_9c0eaa6d_1755762115",
+    "max_products": 100,
+    "categories_limit": null,
+    "output_file": "/app/results/kruidvat_scrape_9c0eaa6d_1755762115_products.json",
+    "progress_file": "/app/jobs/kruidvat_scrape_9c0eaa6d_1755762115_progress.json",
+    "complete_flag": "/app/jobs/kruidvat_scrape_9c0eaa6d_1755762115_complete.flag",
+    "log_file": "/app/logs/kruidvat_scrape_9c0eaa6d_1755762115.log",
+    "webhook_url": "http://n8n:5678/webhook/scraper-complete"
+}
