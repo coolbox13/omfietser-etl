@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/hermanhello/Documents/a_omfietser/omfietser-etl/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

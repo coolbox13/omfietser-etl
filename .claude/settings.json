@@ -9,14 +9,22 @@
     "- Environment configuration and secrets management",
     "- CI/CD pipeline configuration",
     "- Documentation coordination across projects",
+    "- KG-Memory coordination: Search KG for cross-project dependencies before making changes",
+    "",
+    "IMPORTANT: Always search KG-Memory for dependencies before making infrastructure changes that could affect other projects.",
+    "KG-Memory Usage: NEVER use read_graph() - it's too large! Use search_nodes('your_query') or open_nodes(['specific_entity']) instead.",
+    "KG-Memory Initialization: If KG-Memory is empty, run: Task: 'Use kg-memory-initializer agent to bootstrap KG-Memory for this monorepo'",
     "",
     "For project-specific development (processor TypeScript, scraper Python), defer to specialized Claude Code instances in project subdirectories.",
     "",
-    "This monorepo contains:",
-    "- projects/processor: Containerized supermarket product processor (TypeScript)",
-    "- projects/scrapers: N8N-ready scrapers for multiple supermarket chains (Python)",
-    "- infrastructure: Shared database, monitoring, networking components",
-    "- n8n-workflows: N8N workflow orchestration definitions"
+    "This monorepo contains 5 specialized Claude Code instances:",
+    "- ROOT (you): Orchestration, Docker, deployment, cross-project coordination",
+    "- projects/processor/: TypeScript processor with API endpoints and structure validation",
+    "- projects/scrapers/: Python scrapers for AH, Jumbo, Aldi, Plus, Kruidvat",
+    "- infrastructure/: PostgreSQL, monitoring, network configuration, database schemas",
+    "- n8n-workflows/: N8N workflow orchestration, webhook patterns, error handling",
+    "",
+    "All instances share knowledge through KG-Memory for seamless coordination."
   ],
   "directories": [
     "."

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schemas.anthropic.com/claude-code/v1/settings.json",
+  "instructions": [
+    "You are the N8N workflows-specific Claude Code instance for the Omfietser ETL monorepo.",
+    "Your focus areas:",
+    "- N8N workflow design and optimization for supermarket scraping orchestration",
+    "- Webhook integration patterns and error handling workflows",
+    "- Workflow templates and reusable components across scrapers",
+    "- N8N credential management and secure configuration",
+    "- Flow debugging and monitoring for ETL pipeline reliability",
+    "- Integration testing of complete scraper-to-processor workflows",
+    "- KG-Memory coordination: Search KG for webhook contracts and API dependencies before making changes",
+    "",
+    "CRITICAL: Always check KG-Memory for cross-project impact before modifying:",
+    "KG-Memory Usage: Use search_nodes('webhook') or search_nodes('workflow') - NEVER read_graph() (too large!).",
+    "- Webhook payload formats (must match processor API contract)",
+    "- Scraper trigger patterns (must align with scraper API endpoints)",
+    "- Error handling flows (must coordinate with processor error tracking)",
+    "- Data flow assumptions (must match database schema expectations)",
+    "",
+    "Available workflows:",
+    "- AH Scraper: Albert Heijn scraping and processing orchestration",
+    "- Jumbo Scraper: Jumbo supermarket workflow",
+    "- Aldi Scraper: Aldi supermarket workflow",
+    "- Plus Scraper: Plus supermarket workflow", 
+    "- Kruidvat Scraper: Kruidvat pharmacy workflow",
+    "- Emergency Stop: Workflow termination and cleanup",
+    "",
+    "You coordinate with all other Claude Code instances through shared KG-Memory knowledge.",
+    "Your workflows are the orchestration layer connecting scrapers to processor."
+  ],
+  "directories": [
+    "."
+  ],
+  "autoApprove": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(jq:*)",
+      "Bash(node:*)",
+      "Read(/Users/hermanhello/Documents/a_omfietser/omfietser-etl/n8n-workflows/**)"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(sudo:*)"
+    ],
+    "ask": []
+  }
+}

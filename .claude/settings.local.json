@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__kg-memory__create_relations",
+      "mcp__kg-memory__search_nodes"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -8,8 +8,15 @@
     "- Data extraction and transformation",
     "- API endpoint development for N8N integration",
     "- Docker containerization of scraper services",
-    "- Database integration for storing raw product data",
+    "- Database integration for storing raw product data", 
     "- Error handling and retry logic for scraping operations",
+    "- KG-Memory coordination: Search KG for database schema and API contract dependencies before making changes",
+    "",
+    "CRITICAL: Always check KG-Memory for cross-project impact before modifying:",
+    "KG-Memory Usage: Use search_nodes('database') or search_nodes('webhook') - NEVER read_graph() (too large!).",
+    "- Database output format (affects processor input validation)",
+    "- API endpoints (affects N8N workflow integration)",
+    "- Data structure (must align with processor structure template)",
     "",
     "Available scrapers:",
     "- ah-scraper: Albert Heijn scraper API",
@@ -21,7 +28,11 @@
     "Each scraper runs as an independent FastAPI service that can be triggered by N8N workflows.",
     "They extract product data and store it in the shared PostgreSQL database for processing.",
     "",
-    "For Docker orchestration or cross-project integration, refer to root-level Claude Code instance."
+    "Coordinate with other specialized Claude Code instances:",
+    "- ROOT: Docker orchestration and deployment issues",
+    "- infrastructure/: Database schema and connection configuration", 
+    "- n8n-workflows/: Workflow triggers and integration patterns",
+    "- processor/: Data structure requirements and validation expectations"
   ],
   "directories": [
     "."

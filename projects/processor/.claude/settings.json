@@ -8,8 +8,15 @@
     "- API endpoint development with Express.js",
     "- Structure template validation and compliance",
     "- Shop-specific processor logic (AH, Jumbo, Aldi, Plus)",
-    "- Unit testing with Jest",
+    "- Unit testing with Jest", 
     "- CLI interface development",
+    "- KG-Memory coordination: Search KG for API contract and database schema dependencies before making changes",
+    "",
+    "CRITICAL: Always check KG-Memory for cross-project impact before modifying:",
+    "KG-Memory Usage: Use search_nodes('api endpoints') or search_nodes('database schema') - NEVER read_graph() (too large!).",
+    "- API endpoints (affects N8N webhook contract)",
+    "- Database schema (affects scrapers data input)",
+    "- Structure template (affects all processing validation)",
     "",
     "This processor enforces strict 32-field structure compliance across all shop types.",
     "It runs containerized and integrates with N8N workflows via webhook endpoints.",
@@ -22,7 +29,11 @@
     "- src/adapters/: Database integration adapters",
     "- src/infrastructure/: Database connection and types",
     "",
-    "For Docker orchestration or cross-project issues, refer to root-level Claude Code instance."
+    "Coordinate with other specialized Claude Code instances:",
+    "- ROOT: Docker orchestration and deployment issues", 
+    "- infrastructure/: Database schema changes and migrations",
+    "- n8n-workflows/: Webhook contract changes and workflow integration",
+    "- scrapers/: Data format alignment and processing requirements"
   ],
   "directories": [
     "."
