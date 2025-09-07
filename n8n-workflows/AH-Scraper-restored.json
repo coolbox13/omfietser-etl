@@ -1,0 +1,133 @@
+{
+  "name": "AH Scraper",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "notes": "Manual trigger for testing"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "scraper-api-url",
+              "name": "scraper_api_url", 
+              "value": "http://ah-scraper-api:8000",
+              "type": "string"
+            },
+            {
+              "id": "max-products",
+              "name": "max_products",
+              "value": 1000,
+              "type": "number"
+            },
+            {
+              "id": "webhook-url", 
+              "name": "webhook_url",
+              "value": "http://n8n:5678/webhook/scraper-complete",
+              "type": "string"
+            },
+            {
+              "id": "priority",
+              "name": "priority",
+              "value": "high", 
+              "type": "string"
+            },
+            {
+              "id": "notify",
+              "name": "notify_on_complete",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        }
+      },
+      "id": "set-ah-config",
+      "name": "Set AH Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300],
+      "notes": "Configure AH scraper parameters"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set AH Configuration').item.json.scraper_api_url }}/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "max_products",
+              "value": "={{ $('Set AH Configuration').item.json.max_products }}"
+            },
+            {
+              "name": "webhook_url", 
+              "value": "={{ $('Set AH Configuration').item.json.webhook_url }}"
+            },
+            {
+              "name": "priority",
+              "value": "={{ $('Set AH Configuration').item.json.priority }}"
+            },
+            {
+              "name": "notify_on_complete",
+              "value": "={{ $('Set AH Configuration').item.json.notify_on_complete }}"
+            }
+          ]
+        }
+      },
+      "id": "start-ah-scraper",
+      "name": "Start AH Scraper",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.2,
+      "position": [640, 300],
+      "notes": "Start AH scraper job"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set AH Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set AH Configuration": {
+      "main": [
+        [
+          {
+            "node": "Start AH Scraper", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "meta": null,
+  "pinData": {}
+}

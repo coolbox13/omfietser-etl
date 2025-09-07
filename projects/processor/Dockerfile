@@ -20,7 +20,6 @@ RUN npm ci --only=production=false
 
 # Copy source code
 COPY src/ src/
-COPY research/ research/
 
 # Build TypeScript to JavaScript
 RUN npm run build
@@ -114,7 +113,6 @@ RUN npm ci
 
 # Copy source code
 COPY src/ src/
-COPY research/ research/
 
 # Create directories
 RUN mkdir -p logs input output intermediate

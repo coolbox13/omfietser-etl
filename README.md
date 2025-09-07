@@ -59,14 +59,19 @@ claude code .
    ```bash
    docker-compose up -d
    ```
+   **Services Available:**
+   - N8N Workflow Engine: http://localhost:5679
+   - Processor API: http://localhost:4000
+   - PostgreSQL: localhost:5433
+   - Scrapers: http://localhost:8001-8005
 
 3. **Development Mode**:
    ```bash
-   # Start specific services
+   # Start core services only
    docker-compose up -d postgres n8n
    
    # Develop individual components
-   cd projects/processor && npm run dev
+   cd projects/processor && npm run start:dev
    ```
 
 ## Migration History
@@ -79,13 +84,34 @@ Original repositories are preserved as historical archives for reference.
 
 ## Components
 
-- **Processor**: Containerized TypeScript application for product data processing
-- **Scrapers**: Python-based scrapers for each supermarket chain
-- **N8N Workflows**: Automated ETL orchestration workflows
-- **Infrastructure**: Shared database, monitoring, and networking components
+### Core Services
+- **Processor** (`projects/processor/`): Containerized TypeScript application with Express.js API, ML-powered categorization, and comprehensive validation
+- **Scrapers** (`projects/scrapers/`): Python FastAPI services for 5 supermarket chains (AH, Jumbo, Aldi, Plus, Kruidvat)
+- **N8N Workflows** (`n8n-workflows/`): Automated ETL orchestration with webhook integration and progress monitoring
+- **Infrastructure** (`infrastructure/`): Shared PostgreSQL 18rc1, monitoring stack, and networking components
+
+### New Features
+- **Claude Code Integration**: 17 specialized agents for focused development contexts
+- **KG-Memory Coordination**: Cross-project dependency management and knowledge sharing
+- **Workflow Synchronization**: Tools for keeping local N8N workflow definitions in sync
+- **Monitoring Stack**: Optional Prometheus/Grafana for observability
+
+## Recent Updates
+
+- ✅ **PostgreSQL 18rc1**: Upgraded to latest database version
+- ✅ **Agent Ecosystem**: Complete Claude Code agent implementation
+- ✅ **Workflow Tools**: N8N synchronization and backup scripts
+- ✅ **Container Orchestration**: Full 8-service Docker stack
+
+## Documentation
+
+- `CHANGELOG.md`: Detailed change history
+- `KG_MEMORY_REFERENCE.md`: Knowledge graph initialization guide
+- Project-specific `CLAUDE.md` files in each directory
+- Docker Compose service documentation
 
 ---
 
-**Migration completed**: $(date)  
-**Development focus**: N8N automation ecosystem  
-**Backup repositories**: Available for historical reference
+**Latest Update**: September 2024  
+**Development Focus**: Unified ETL automation with AI-powered development assistance  
+**Database**: PostgreSQL 18rc1 with comprehensive schema management

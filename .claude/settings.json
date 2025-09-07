@@ -29,19 +29,17 @@
   "directories": [
     "."
   ],
-  "autoApprove": {
+  "permissions": {
     "allow": [
-      "Bash(docker:*)",
-      "Bash(docker-compose:*)",
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(curl:*)",
-      "Read(/Users/hermanhello/Documents/a_omfietser/omfietser-etl/**)"
+      "Bash(docker *)",
+      "Bash(docker-compose *)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(curl *)"
     ],
     "deny": [
-      "Bash(rm:*)",
-      "Bash(sudo:*)"
-    ],
-    "ask": []
+      "Bash(rm -rf *)",
+      "Bash(sudo *)"
+    ]
   }
 }
