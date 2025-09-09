@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Read(//Users/hermanhello/Documents/a_omfietser/omfietser-etl/**)",
+      "mcp__kg-memory__search_nodes",
+      "mcp__kg-memory__create_entities",
+      "mcp__kg-memory__create_relations",
+      "mcp__kg-memory__add_observations",
+      "Bash(git add:*)",
+      "Read(//Users/hermanhello/Documents/a_omfietser/**)",
+      "Bash(PGPASSWORD=your_secure_password_here psql:*)",
+      "Bash(export PATH=$PATH:/Applications/Docker.app/Contents/Resources/bin)",
+      "Bash(docker exec:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

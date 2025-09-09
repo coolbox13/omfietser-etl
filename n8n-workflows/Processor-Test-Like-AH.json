@@ -1,0 +1,75 @@
+{
+  "name": "Processor Test Like AH",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [300, 300],
+      "id": "manual-trigger",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "webhook_payload",
+              "name": "webhook_payload", 
+              "value": {
+                "action": "process",
+                "shop_type": "ah", 
+                "batch_id": "test-like-ah",
+                "metadata": {
+                  "triggered_by": "n8n_test_like_ah",
+                  "test": true
+                }
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "set-payloads",
+      "name": "Set Test Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 300],
+      "notes": "Set test data like AH scraper"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://processor:4000/api/v1/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "sendJson": true,
+        "jsonBody": "={{ $json.webhook_payload }}"
+      },
+      "id": "test-processor-like-ah",
+      "name": "Test Processor Like AH",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300],
+      "notes": "Copy exact AH scraper pattern"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [{"node": "Set Test Payload", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Test Payload": {
+      "main": [
+        [{"node": "Test Processor Like AH", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {}
+}

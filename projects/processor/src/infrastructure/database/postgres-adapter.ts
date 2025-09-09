@@ -323,12 +323,16 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
 
   async createProcessingJob(job: ProcessingJobInsert): Promise<ProcessingJob> {
     try {
+      // Generate UUID for job_id if not provided
+      const jobId = job.job_id || `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      
       const sql = `
-        INSERT INTO processing_jobs (shop_type, batch_size, metadata)
-        VALUES ($1, $2, $3)
+        INSERT INTO processing_jobs (job_id, shop_type, batch_size, metadata)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
       `;
       const params = [
+        jobId,
         job.shop_type,
         job.batch_size || 100,
         job.metadata ? JSON.stringify(job.metadata) : null

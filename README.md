@@ -60,7 +60,7 @@ claude code .
    docker-compose up -d
    ```
    **Services Available:**
-   - N8N Workflow Engine: http://localhost:5679
+   - N8N Workflow Engine: http://localhost:5678
    - Processor API: http://localhost:4000
    - PostgreSQL: localhost:5433
    - Scrapers: http://localhost:8001-8005
@@ -98,12 +98,14 @@ Original repositories are preserved as historical archives for reference.
 
 ## Recent Updates
 
-- ✅ **N8N Workflow Repair**: Fixed AH Scraper workflow with proper service endpoints and webhook handling
+- ✅ **N8N-Processor Integration**: Complete end-to-end integration with working parameter passing patterns
+- ✅ **Port Consistency**: Standardized N8N on port 5678 for consistent access
+- ✅ **HTTP Request Configuration**: Documented working `bodyParameters` pattern for N8N API calls
+- ✅ **Database Schema**: Fixed processor database validation and table creation
+- ✅ **Test Workflows**: Created comprehensive processor test workflows with all 4 endpoints
 - ✅ **PostgreSQL 18rc1**: Upgraded to latest database version
 - ✅ **Agent Ecosystem**: Complete Claude Code agent implementation
-- ✅ **Workflow Tools**: N8N synchronization and backup scripts
 - ✅ **Container Orchestration**: Full 8-service Docker stack
-- ✅ **N8N Integration**: Tested end-to-end workflow execution with email notifications
 
 ## Documentation
 
@@ -115,6 +117,6 @@ Original repositories are preserved as historical archives for reference.
 ---
 
 **Latest Update**: September 2024  
-**Development Focus**: Unified ETL automation with AI-powered development assistance  
-**Database**: PostgreSQL 18rc1 with comprehensive schema management  
-**Workflow Status**: Production-ready N8N workflows with automated scraping and processing
+**Development Focus**: N8N-Processor integration with automated ETL workflows  
+**Database**: PostgreSQL 18rc1 with validated schema and job management  
+**Integration Status**: Complete N8N → Processor webhook integration with working parameter patterns

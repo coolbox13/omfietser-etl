@@ -1,0 +1,230 @@
+{
+  "name": "Complete Processor Test",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [300, 300],
+      "id": "manual-trigger",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "processor_url",
+              "name": "processor_base_url",
+              "value": "http://processor:4000",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "config",
+      "name": "Set Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 300],
+      "notes": "Set processor API base URL"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.processor_base_url }}/health"
+      },
+      "id": "test-health",
+      "name": "Test Health Endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 200],
+      "notes": "Check processor service health"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "action",
+              "name": "action",
+              "value": "process",
+              "type": "string"
+            },
+            {
+              "id": "shop_type",
+              "name": "shop_type", 
+              "value": "ah",
+              "type": "string"
+            },
+            {
+              "id": "batch_id",
+              "name": "batch_id",
+              "value": "complete-test-webhook",
+              "type": "string"
+            },
+            {
+              "id": "metadata",
+              "name": "metadata",
+              "value": {
+                "triggered_by": "n8n_complete_test",
+                "test": true,
+                "endpoint": "webhook"
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "set-webhook-params",
+      "name": "Set Webhook Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [700, 300],
+      "notes": "Set parameters for webhook test"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Set Configuration'].json['processor_base_url'] }}/api/v1/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "action", "value": "={{ $json.action }}"},
+            {"name": "shop_type", "value": "={{ $json.shop_type }}"},
+            {"name": "batch_id", "value": "={{ $json.batch_id }}"},
+            {"name": "metadata", "value": "={{ $json.metadata }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "test-webhook",
+      "name": "Test Webhook Endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "notes": "Test processor webhook with working bodyParameters"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "shop_type",
+              "name": "shop_type", 
+              "value": "ah",
+              "type": "string"
+            },
+            {
+              "id": "batch_size",
+              "name": "batch_size",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "metadata",
+              "name": "metadata",
+              "value": {
+                "triggered_by": "n8n_complete_test",
+                "test": true,
+                "endpoint": "jobs"
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "set-jobs-params",
+      "name": "Set Jobs Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [700, 400],
+      "notes": "Set parameters for jobs test"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node['Set Configuration'].json['processor_base_url'] }}/api/v1/jobs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Content-Type", "value": "application/json"}
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "shop_type", "value": "={{ $json.shop_type }}"},
+            {"name": "batch_size", "value": "={{ $json.batch_size }}"},
+            {"name": "metadata", "value": "={{ $json.metadata }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "test-jobs",
+      "name": "Test Jobs Endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400],
+      "notes": "Test processor jobs creation"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Comprehensive processor test results analysis\nconst allInputs = $input.all();\nconst results = {};\nconst testSummary = {\n  total_tests: allInputs.length,\n  passed: 0,\n  failed: 0,\n  details: []\n};\n\nconsole.log(`=== PROCESSOR TEST RESULTS ===`);\nconsole.log(`Analyzing ${allInputs.length} test results...`);\n\nallInputs.forEach((input, index) => {\n  const response = input.json;\n  let testName = 'Unknown Test';\n  \n  // Determine test name from response or node context\n  if (response.url?.includes('/health')) {\n    testName = 'Health Check';\n  } else if (response.url?.includes('/webhook')) {\n    testName = 'Webhook API';\n  } else if (response.url?.includes('/jobs')) {\n    testName = 'Jobs API';\n  } else {\n    testName = `Test ${index + 1}`;\n  }\n  \n  // Determine success\n  const isSuccess = response.success === true || \n                   (response.status >= 200 && response.status < 300) ||\n                   (!response.error && response.data);\n  \n  const testResult = {\n    test: testName,\n    success: isSuccess,\n    status: response.status || 'unknown',\n    message: response.message || 'No message',\n    job_id: response.data?.job_id || response.job_id || null,\n    error: response.error?.message || response.message?.includes('error') ? response.message : null,\n    response_data: response.data || null\n  };\n  \n  results[testName] = testResult;\n  testSummary.details.push(testResult);\n  \n  if (isSuccess) {\n    testSummary.passed++;\n    console.log(`✅ ${testName}: SUCCESS`);\n    if (testResult.job_id) {\n      console.log(`   Job ID: ${testResult.job_id}`);\n    }\n  } else {\n    testSummary.failed++;\n    console.log(`❌ ${testName}: FAILED`);\n    console.log(`   Status: ${testResult.status}`);\n    console.log(`   Error: ${testResult.error || 'Unknown error'}`);\n  }\n});\n\nconsole.log(`\\n=== FINAL SUMMARY ===`);\nconsole.log(`✅ Passed: ${testSummary.passed}/${testSummary.total_tests}`);\nconsole.log(`❌ Failed: ${testSummary.failed}/${testSummary.total_tests}`);\nconsole.log(`📊 Success Rate: ${Math.round((testSummary.passed / testSummary.total_tests) * 100)}%`);\n\n// Determine overall status\nlet overallStatus, statusIcon, recommendation;\nif (testSummary.failed === 0) {\n  overallStatus = 'ALL_TESTS_PASSED';\n  statusIcon = '🎉';\n  recommendation = 'Processor integration is fully operational!';\n} else if (testSummary.passed > 0) {\n  overallStatus = 'PARTIAL_SUCCESS';\n  statusIcon = '⚠️';\n  recommendation = `${testSummary.failed} endpoint(s) failing. Check processor logs.`;\n} else {\n  overallStatus = 'ALL_TESTS_FAILED';\n  statusIcon = '🚨';\n  recommendation = 'Processor service may be down. Check Docker containers.';\n}\n\nreturn [{\n  json: {\n    test_summary: testSummary,\n    overall_status: overallStatus,\n    status_icon: statusIcon,\n    recommendation: recommendation,\n    individual_results: results,\n    processor_endpoints_tested: [\n      'GET /health',\n      'POST /api/v1/webhook/n8n',\n      'POST /api/v1/jobs'\n    ],\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "analyze-results",
+      "name": "Analyze Test Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 350],
+      "notes": "Comprehensive analysis of all processor tests"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [{"node": "Set Configuration", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Configuration": {
+      "main": [
+        [
+          {"node": "Test Health Endpoint", "type": "main", "index": 0},
+          {"node": "Set Webhook Parameters", "type": "main", "index": 0},
+          {"node": "Set Jobs Parameters", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Test Health Endpoint": {
+      "main": [
+        [{"node": "Analyze Test Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Webhook Parameters": {
+      "main": [
+        [{"node": "Test Webhook Endpoint", "type": "main", "index": 0}]
+      ]
+    },
+    "Test Webhook Endpoint": {
+      "main": [
+        [{"node": "Analyze Test Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Set Jobs Parameters": {
+      "main": [
+        [{"node": "Test Jobs Endpoint", "type": "main", "index": 0}]
+      ]
+    },
+    "Test Jobs Endpoint": {
+      "main": [
+        [{"node": "Analyze Test Results", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {}
+}

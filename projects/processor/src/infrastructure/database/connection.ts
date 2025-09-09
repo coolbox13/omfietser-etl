@@ -101,11 +101,11 @@ export class DatabaseConnection {
     // Test basic connectivity
     await client.query('SELECT 1 as test');
     
-    // Validate required schemas exist
+    // Validate required schemas exist (processor uses public schema)
     const schemaQuery = `
       SELECT schema_name 
       FROM information_schema.schemata 
-      WHERE schema_name IN ('raw', 'staging', 'processed')
+      WHERE schema_name IN ('public')
     `;
     
     const schemaResult = await client.query(schemaQuery);
@@ -113,18 +113,32 @@ export class DatabaseConnection {
     
     this.logger.debug('Found database schemas', { schemas });
     
-    // Validate key tables exist
+    // Validate key processor tables exist in public schema
     const tablesQuery = `
       SELECT table_schema, table_name 
       FROM information_schema.tables 
-      WHERE table_schema IN ('raw', 'staging', 'processed')
-      AND table_name IN ('products', 'processing_jobs', 'processing_errors')
+      WHERE table_schema = 'public'
+      AND table_name IN ('products', 'processing_jobs', 'processing_errors', 'staging_products')
     `;
     
     const tablesResult = await client.query(tablesQuery);
     const tables = tablesResult.rows.map(row => `${row.table_schema}.${row.table_name}`);
     
     this.logger.debug('Found database tables', { tables });
+    
+    // Check that all required processor tables exist
+    const requiredTables = ['products', 'processing_jobs', 'processing_errors', 'staging_products'];
+    const foundTableNames = tablesResult.rows.map(row => row.table_name);
+    const missingTables = requiredTables.filter(table => !foundTableNames.includes(table));
+    
+    if (missingTables.length > 0) {
+      throw new Error(`Missing required processor tables: ${missingTables.join(', ')}. Run database schema initialization.`);
+    }
+    
+    this.logger.info('Database validation completed successfully', { 
+      foundTables: tables,
+      requiredTables 
+    });
   }
 
   /**

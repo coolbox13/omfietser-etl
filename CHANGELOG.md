@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Complete N8N-Processor integration with end-to-end workflow automation
+- Comprehensive processor test workflows covering all 4 API endpoints
+- N8N HTTP request node configuration documentation with working patterns
+- Processor database schema validation and automatic table creation
+- N8N API programmatic workflow management capabilities
 - Comprehensive Claude Code agent ecosystem with 17 specialized agents
 - N8N workflow synchronization tools (`sync-workflows.sh`, `backup-workflows.sh`)
 - PostgreSQL 18rc1 upgrade for latest database features
@@ -18,14 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Production-ready AH Scraper workflow with complete error handling
 
 ### Changed
+- **BREAKING**: N8N port standardized from 5679 to 5678 for consistency
 - **BREAKING**: Upgraded PostgreSQL from version 15 to 18rc1-alpine
-- **BREAKING**: Updated Claude Code settings.json to use correct autoApprove pattern format
+- N8N workflow parameter passing to use `bodyParameters` instead of `sendJson`
+- Processor database schema validation to check `public` schema
 - Docker Compose service configuration for improved health checks
 - N8N workflow persistence to PostgreSQL backend
 - Processor Dockerfile optimization (removed non-existent research/ directory references)
-- Port mappings: PostgreSQL (5433), N8N (5679), Processor (4000), Scrapers (8001-8005)
+- Port mappings: PostgreSQL (5433), N8N (5678), Processor (4000), Scrapers (8001-8005)
 
 ### Fixed
+- N8N HTTP request node parameter passing with working `bodyParameters` pattern
+- Processor database connection and schema validation errors
+- Missing processor database tables (processing_jobs, processing_errors, products, staging_products)
+- N8N-Processor webhook integration parameter transmission issues
+- Raw products table creation and data insertion for processor workflows
 - Claude Code settings validation errors with proper autoApprove patterns
 - Docker volume mount issues for N8N exports directory
 - N8N workflow synchronization between local JSON files and live workflows

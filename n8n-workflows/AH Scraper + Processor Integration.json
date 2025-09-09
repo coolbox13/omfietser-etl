@@ -1,5 +1,5 @@
 {
-  "name": "AH Scraper Complete (Repaired)",
+  "name": "AH Scraper + Processor Integration",
   "nodes": [
     {
       "parameters": {
@@ -34,25 +34,31 @@
               "name": "notify_on_complete",
               "value": true,
               "type": "boolean"
+            },
+            {
+              "id": "processor_url",
+              "name": "processor_api_url",
+              "value": "http://processor:4000",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
       "id": "config-node",
-      "name": "Set AH Configuration (Fixed)",
+      "name": "Set AH Configuration + Processor",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
         512,
         304
       ],
-      "notes": "FIXED: Updated to use ah-scraper:8000 service"
+      "notes": "Configuration with processor API URL added"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $node['Set AH Configuration (Fixed)'].json['scraper_api_url'] }}/scrape",
+        "url": "={{ $node['Set AH Configuration + Processor'].json['scraper_api_url'] }}/scrape",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -67,33 +73,33 @@
           "parameters": [
             {
               "name": "max_products",
-              "value": "={{ $node['Set AH Configuration (Fixed)'].json['max_products'] }}"
+              "value": "={{ $node['Set AH Configuration + Processor'].json['max_products'] }}"
             },
             {
               "name": "webhook_url",
-              "value": "={{ $node['Set AH Configuration (Fixed)'].json['webhook_url'] }}"
+              "value": "={{ $node['Set AH Configuration + Processor'].json['webhook_url'] }}"
             },
             {
               "name": "priority",
-              "value": "={{ $node['Set AH Configuration (Fixed)'].json['priority'] }}"
+              "value": "={{ $node['Set AH Configuration + Processor'].json['priority'] }}"
             },
             {
               "name": "notify_on_complete",
-              "value": "={{ $node['Set AH Configuration (Fixed)'].json['notify_on_complete'] }}"
+              "value": "={{ $node['Set AH Configuration + Processor'].json['notify_on_complete'] }}"
             }
           ]
         },
         "options": {}
       },
       "id": "start-scraper",
-      "name": "Start AH Scraper (Fixed)",
+      "name": "Start AH Scraper",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         896,
         304
       ],
-      "notes": "FIXED: Uses ah-scraper service"
+      "notes": "Start scraping job"
     },
     {
       "parameters": {
@@ -108,7 +114,7 @@
             {
               "id": "scraper_url_ref",
               "name": "scraper_api_url",
-              "value": "={{ $node['Set AH Configuration (Fixed)'].json['scraper_api_url'] }}",
+              "value": "={{ $node['Set AH Configuration + Processor'].json['scraper_api_url'] }}",
               "type": "string"
             },
             {
@@ -147,8 +153,8 @@
         1312,
         304
       ],
-      "webhookId": "9915aee1-317e-459a-bf5c-0820d8d926a5",
-      "notes": "FIXED: Removed webhookId parameter"
+      "webhookId": "9394a689-2966-4e6a-992e-073ae6d9f95d",
+      "notes": "Wait for scraper initialization"
     },
     {
       "parameters": {
@@ -165,7 +171,7 @@
         1504,
         304
       ],
-      "notes": "Progress monitoring"
+      "notes": "Monitor progress"
     },
     {
       "parameters": {
@@ -231,7 +237,7 @@
         1712,
         304
       ],
-      "notes": "FIXED: Route only to results on completion"
+      "notes": "Route based on completion"
     },
     {
       "parameters": {
@@ -266,7 +272,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transform scraped products for database insertion\nconst input = $input.all()[0].json;\n\n// Extract data from AH scraper structure\nconst data = input.debug_data || input;\nconst job_id = data.job_id || input.job_id || 'unknown';\nconst products = data.products || [];\n\n// Create one record per product\nconst productRecords = products.map(product => ({\n  json: {\n    shop_type: 'ah',\n    job_id: job_id,\n    raw_data: product,\n    scraped_at: new Date().toISOString()\n  }\n}));\n\nconsole.log(`Prepared ${productRecords.length} product records for job: ${job_id}`);\n\nreturn productRecords;"
+        "jsCode": "// Transform scraped products for database insertion\nconst input = $input.all()[0].json;\n\n// Extract data from the AH scraper structure\nconst data = input.debug_data || input;\nconst job_id = data.job_id || input.job_id || 'unknown';\nconst products = data.products || [];\n\n// Create one record per product for current Docker PostgreSQL setup\nconst productRecords = products.map(product => ({\n  json: {\n    shop_type: 'ah',\n    job_id: job_id,\n    raw_data: product,\n    scraped_at: new Date().toISOString()\n  }\n}));\n\nconsole.log(`Prepared ${productRecords.length} product records for job: ${job_id}`);\n\n// Return array of product records for bulk insertion\nreturn productRecords;"
       },
       "id": "transform-products",
       "name": "Transform Products for DB",
@@ -298,7 +304,108 @@
           "name": "Postgres account"
         }
       },
-      "notes": "Insert into postgres service"
+      "notes": "Insert into postgres"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare processor trigger data from PostgreSQL insertion results\nconst input = $input.all()[0];\nconst insertResults = input.json;\n\n// Extract job information from the first inserted record\nconst firstRecord = Array.isArray(insertResults) ? insertResults[0] : insertResults;\nconst job_id = firstRecord?.job_id || 'unknown';\nconst shop_type = firstRecord?.shop_type || 'ah';\nconst recordCount = Array.isArray(insertResults) ? insertResults.length : 1;\n\n// Create processor webhook payload\nconst processorPayload = {\n  action: 'process',\n  shop_type: shop_type,\n  batch_id: job_id,\n  metadata: {\n    triggered_by: 'n8n_scraper_completion',\n    scraper_job_id: job_id,\n    raw_products_count: recordCount,\n    scraped_at: firstRecord?.scraped_at,\n    processing_request_time: new Date().toISOString()\n  }\n};\n\nconsole.log(`Triggering processor for ${shop_type} with ${recordCount} products from job: ${job_id}`);\n\nreturn [{\n  json: processorPayload\n}];"
+      },
+      "id": "prepare-processor",
+      "name": "Prepare Processor Trigger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        208
+      ],
+      "notes": "Prepare data for processor API call"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Set AH Configuration + Processor\"].json[\"processor_api_url\"] }}/api/v1/webhook/n8n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "name": "shop_type",
+              "value": "={{ $json.shop_type }}"
+            },
+            {
+              "name": "batch_id",
+              "value": "={{ $json.batch_id }}"
+            },
+            {
+              "name": "metadata",
+              "value": "={{ $json.metadata }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trigger-processor",
+      "name": "Trigger AH Processor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        208
+      ],
+      "notes": "Start processor job via webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format processor response for notification\nconst processorResponse = $json;\nconst previousData = $input.first().json;\n\n// Extract processor job information\nconst processorJobId = processorResponse.data?.job_id || 'unknown';\nconst processorAction = processorResponse.data?.action || 'unknown';\nconst success = processorResponse.success || false;\nconst message = processorResponse.message || 'No message';\n\n// Extract scraper information from previous step\nconst scraperJobId = previousData.metadata?.scraper_job_id || 'unknown';\nconst productCount = previousData.metadata?.raw_products_count || 0;\nconst shopType = previousData.shop_type || 'ah';\n\nlet statusIcon, statusMessage;\nif (success) {\n  statusIcon = '🔄';\n  statusMessage = `Processing started successfully`;\n} else {\n  statusIcon = '❌';\n  statusMessage = `Processing failed to start`;\n}\n\nconst notificationData = {\n  subject: `${statusIcon} AH Processing ${success ? 'Started' : 'Failed'} - ${productCount} products`,\n  html: `\n    <h2>${statusIcon} AH Product Processing ${success ? 'Started' : 'Failed'}</h2>\n    <p><strong>Scraper Job ID:</strong> ${scraperJobId}</p>\n    <p><strong>Processor Job ID:</strong> ${processorJobId}</p>\n    <p><strong>Products to Process:</strong> ${productCount}</p>\n    <p><strong>Shop Type:</strong> ${shopType}</p>\n    <p><strong>Status:</strong> ${statusMessage}</p>\n    <p><strong>Message:</strong> ${message}</p>\n    <hr>\n    <p>The scraped AH products have been inserted into the database and ${success ? 'processing has begun' : 'processing failed to start'}.</p>\n    ${success ? '<p>You will receive another notification when processing completes.</p>' : '<p style=\"color: red;\">Check the processor logs for error details.</p>'}\n  `,\n  processor_job_id: processorJobId,\n  scraper_job_id: scraperJobId,\n  status: success ? 'processing_started' : 'processing_failed',\n  product_count: productCount\n};\n\nreturn [{ json: notificationData }];"
+      },
+      "id": "format-processor-notification",
+      "name": "Format Processor Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        208
+      ],
+      "notes": "Format processing status notification"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hello@omfietser.nl",
+        "toEmail": "hello@coolbox.com",
+        "subject": "={{ $json.subject }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": "={{ true }}"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3072,
+        208
+      ],
+      "id": "send-processor-email",
+      "name": "Send Processor Notification",
+      "webhookId": "a59f2f54-b0c9-494a-8dda-3e898b7eaa97",
+      "credentials": {
+        "smtp": {
+          "id": "wdEUrLjEOyg2qyAe",
+          "name": "SMTP account"
+        }
+      },
+      "notes": "Email notification about processor status"
     },
     {
       "parameters": {
@@ -315,11 +422,11 @@
         112
       ],
       "webhookId": "scraper-complete-fixed",
-      "notes": "FIXED: Dedicated webhook for completion notifications"
+      "notes": "Webhook for completion notifications"
     },
     {
       "parameters": {
-        "jsCode": "// Parse webhook payload from ah-scraper service\nconst payload = $json;\n\n// Extract from nested body if it exists\nconst data = payload.body || payload;\n\n// Extract job information\nconst jobId = data.job_id || 'unknown';\nconst status = data.status || 'unknown';\nconst resultsCount = data.results_count || data.products_scraped || 0;\nconst errorMessage = data.error || data.error_message || '';\nconst executionTime = data.execution_time || data.duration_seconds || '';\n\n// Determine email content\nlet subject, htmlContent, statusIcon;\n\nswitch (status.toLowerCase()) {\n  case 'completed':\n  case 'success':\n    subject = `✅ AH Scrape completed successfully - ${resultsCount} products`;\n    statusIcon = '✅';\n    htmlContent = `\n      <h2>${statusIcon} AH Scraping Job Completed Successfully</h2>\n      <p><strong>Job ID:</strong> ${jobId}</p>\n      <p><strong>Products Scraped:</strong> ${resultsCount}</p>\n      ${executionTime ? `<p><strong>Execution Time:</strong> ${executionTime} seconds</p>` : ''}\n      <p><strong>Service:</strong> ah-scraper:8000 (FIXED)</p>\n      <hr>\n      <p>The Albert Heijn scraping job has finished successfully.</p>\n    `;\n    break;\n    \n  case 'failed':\n  case 'error':\n    subject = `❌ AH Scrape failed - Error occurred`;\n    statusIcon = '❌';\n    htmlContent = `\n      <h2>${statusIcon} AH Scraping Job Failed</h2>\n      <p><strong>Job ID:</strong> ${jobId}</p>\n      <p><strong>Status:</strong> Failed</p>\n      <p><strong>Error:</strong> ${errorMessage}</p>\n      <p><strong>Service:</strong> ah-scraper:8000 (FIXED)</p>\n      <hr>\n      <p style=\"color: red;\">The job encountered an error. Check ah-scraper logs.</p>\n    `;\n    break;\n    \n  default:\n    subject = `❓ AH Scrape status: ${status}`;\n    statusIcon = '❓';\n    htmlContent = `\n      <h2>${statusIcon} AH Scraping Job Status Update</h2>\n      <p><strong>Job ID:</strong> ${jobId}</p>\n      <p><strong>Status:</strong> ${status}</p>\n      <p><strong>Products:</strong> ${resultsCount}</p>\n      <hr>\n      <p>Received webhook with status: ${status}</p>\n    `;\n}\n\nreturn [{\n  json: {\n    subject: subject,\n    html: htmlContent,\n    status: status,\n    job_id: jobId,\n    results_count: resultsCount\n  }\n}];"
+        "jsCode": "// Parse webhook payload from ah-scraper service\\nconst payload = $json;\\n\\n// Extract from nested body if it exists\\nconst data = payload.body || payload;\\n\\n// Extract job information\\nconst jobId = data.job_id || 'unknown';\\nconst status = data.status || 'unknown';\\nconst resultsCount = data.results_count || data.products_scraped || 0;\\nconst errorMessage = data.error || data.error_message || '';\\nconst executionTime = data.execution_time || data.duration_seconds || '';\\n\\n// Determine email content\\nlet subject, htmlContent, statusIcon;\\n\\nswitch (status.toLowerCase()) {\\n  case 'completed':\\n  case 'success':\\n    subject = `✅ AH Scrape completed successfully - ${resultsCount} products`;\\n    statusIcon = '✅';\\n    htmlContent = `\\n      <h2>${statusIcon} AH Scraping Job Completed Successfully</h2>\\n      <p><strong>Job ID:</strong> ${jobId}</p>\\n      <p><strong>Products Scraped:</strong> ${resultsCount}</p>\\n      ${executionTime ? `<p><strong>Execution Time:</strong> ${executionTime} seconds</p>` : ''}\\n      <p><strong>Service:</strong> ah-scraper:8000</p>\\n      <hr>\\n      <p>The Albert Heijn scraping job has finished successfully.</p>\\n    `;\\n    break;\\n    \\n  case 'failed':\\n  case 'error':\\n    subject = `❌ AH Scrape failed - Error occurred`;\\n    statusIcon = '❌';\\n    htmlContent = `\\n      <h2>${statusIcon} AH Scraping Job Failed</h2>\\n      <p><strong>Job ID:</strong> ${jobId}</p>\\n      <p><strong>Status:</strong> Failed</p>\\n      <p><strong>Error:</strong> ${errorMessage}</p>\\n      <p><strong>Service:</strong> ah-scraper:8000</p>\\n      <hr>\\n      <p style=\\\"color: red;\\\">The job encountered an error. Check ah-scraper logs.</p>\\n    `;\\n    break;\\n    \\n  default:\\n    subject = `❓ AH Scrape status: ${status}`;\\n    statusIcon = '❓';\\n    htmlContent = `\\n      <h2>${statusIcon} AH Scraping Job Status Update</h2>\\n      <p><strong>Job ID:</strong> ${jobId}</p>\\n      <p><strong>Status:</strong> ${status}</p>\\n      <p><strong>Products:</strong> ${resultsCount}</p>\\n      <hr>\\n      <p>Received webhook with status: ${status}</p>\\n    `;\\n}\\n\\nreturn [{\\n  json: {\\n    subject: subject,\\n    html: htmlContent,\\n    status: status,\\n    job_id: jobId,\\n    results_count: resultsCount\\n  }\\n}];"
       },
       "id": "analyze-status",
       "name": "Analyze Job Status",
@@ -329,7 +436,7 @@
         704,
         112
       ],
-      "notes": "FIXED: Analyze webhook payload"
+      "notes": "Analyze webhook payload"
     },
     {
       "parameters": {
@@ -349,18 +456,18 @@
       ],
       "id": "send-email",
       "name": "Send Email Notification",
-      "webhookId": "d84d5717-aac3-4313-8f69-1779dc74f7ab",
+      "webhookId": "2caf0dab-b962-443d-82a5-bffd6bff6607",
       "credentials": {
         "smtp": {
           "id": "wdEUrLjEOyg2qyAe",
           "name": "SMTP account"
         }
       },
-      "notes": "FIXED: Send completion emails"
+      "notes": "Send completion emails"
     },
     {
       "parameters": {
-        "command": "echo \"Cleanup completed - current Docker setup\""
+        "command": "echo \\\"Cleanup completed - current Docker setup\\\""
       },
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
@@ -413,7 +520,7 @@
       "main": [
         [
           {
-            "node": "Set AH Configuration (Fixed)",
+            "node": "Set AH Configuration + Processor",
             "type": "main",
             "index": 0
           }
@@ -424,14 +531,14 @@
       "main": [
         [
           {
-            "node": "Set AH Configuration (Fixed)",
+            "node": "Set AH Configuration + Processor",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Set AH Configuration (Fixed)": {
+    "Set AH Configuration + Processor": {
       "main": [
         [
           {
@@ -446,14 +553,14 @@
       "main": [
         [
           {
-            "node": "Start AH Scraper (Fixed)",
+            "node": "Start AH Scraper",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Start AH Scraper (Fixed)": {
+    "Start AH Scraper": {
       "main": [
         [
           {
@@ -548,6 +655,50 @@
         ]
       ]
     },
+    "Insert Products to PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Prepare Processor Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Processor Trigger": {
+      "main": [
+        [
+          {
+            "node": "Trigger AH Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger AH Processor": {
+      "main": [
+        [
+          {
+            "node": "Format Processor Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Processor Notification": {
+      "main": [
+        [
+          {
+            "node": "Send Processor Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Webhook - Scraper Complete": {
       "main": [
         [
@@ -573,11 +724,11 @@
   },
   "active": false,
   "settings": {},
-  "versionId": "3533dd3b-3f4f-422b-b762-2c62e9a97887",
+  "versionId": "49955549-85e7-46dc-849c-75dc39a799eb",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c7fbe92541273204d3c91939d7aa33b23929eaf7d8129c00c01ca52c93ae7f43"
   },
-  "id": "pdL9Qf4JtlgOUIsD",
+  "id": "LG2xKkeKWPcBYWq3",
   "tags": []
 }

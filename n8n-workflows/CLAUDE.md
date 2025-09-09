@@ -112,3 +112,61 @@ Adjust `max_products` parameter based on requirements:
 
 ### Notification Channels
 Add email/Slack nodes after completion processing for custom alerts and reporting integration.
+
+## HTTP Request Node Configuration
+
+### Working Parameter Passing Pattern ✅
+
+**CRITICAL**: Use `bodyParameters` with expressions, NOT `jsonBody` for reliable parameter passing.
+
+#### Correct Configuration (Working):
+```json
+{
+  "method": "POST",
+  "url": "http://processor:4000/api/v1/webhook/n8n",
+  "sendHeaders": true,
+  "headerParameters": {
+    "parameters": [
+      {"name": "Content-Type", "value": "application/json"}
+    ]
+  },
+  "sendBody": true,
+  "bodyParameters": {
+    "parameters": [
+      {"name": "action", "value": "={{ $json.action }}"},
+      {"name": "shop_type", "value": "={{ $json.shop_type }}"},
+      {"name": "batch_id", "value": "={{ $json.batch_id }}"},
+      {"name": "metadata", "value": "={{ $json.metadata }}"}
+    ]
+  }
+}
+```
+
+#### Workflow Pattern:
+1. **Set Node**: Create individual fields as separate assignments
+2. **HTTP Request Node**: Reference each field using `={{ $json.field_name }}`
+
+#### Failed Approaches ❌:
+- `sendJson: true` with `jsonBody: "={{ $json.object }}"`
+- `requestFormat: "json"` with direct `jsonBody` object
+- `jsonParameters` with individual parameter mapping
+
+### Processor Integration
+
+#### Processor API Endpoints:
+- **Webhook**: `POST /api/v1/webhook/n8n` - Start processing job
+- **Jobs**: `POST /api/v1/jobs` - Create processing job
+- **Health**: `GET /health` - Service status
+
+#### Required Parameters:
+```json
+{
+  "action": "process",
+  "shop_type": "ah|jumbo|aldi|plus|kruidvat", 
+  "batch_id": "unique-job-identifier",
+  "metadata": {
+    "triggered_by": "n8n_workflow",
+    "test": true|false
+  }
+}
+```
