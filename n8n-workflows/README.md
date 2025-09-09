@@ -1,35 +1,47 @@
-# N8N Workflows for AH Scraper
+# N8N Workflows for Omfietser ETL
 
-This directory contains N8N workflows for orchestrating the AH scraper via the FastAPI service.
+This directory contains N8N workflows for orchestrating all supermarket scrapers in the Omfietser ETL ecosystem.
 
 ## 📋 Available Workflows
 
-### `ah-scraper-workflow.json`
-Production-ready workflow that:
-- Triggers daily at 6 AM
-- Starts scraping job via FastAPI
-- Monitors progress in real-time
-- Processes results when complete
-- Sends notifications
+### `AH Scraper.json` (Production Ready ✅)
+Complete AH (Albert Heijn) workflow that:
+- Triggers weekly on Mondays at 6 AM  
+- Starts scraping job via ah-scraper:8000 FastAPI service
+- Monitors progress in real-time with 30-second polling
+- Transforms results and inserts into PostgreSQL database
+- Sends email notifications via webhook completion handler
+
+### Other Scrapers (Archived)
+- `Jumbo Scraper.json` (backed up)
+- `Aldi Scraper.json` (backed up)  
+- `Plus Scraper.json` (backed up)
+- `Kruidvat Scraper.json` (backed up)
 
 ## 🔧 Setup Instructions
 
 ### 1. Import Workflow
-1. Open N8N web interface (http://localhost:5678)
+1. Open N8N web interface (http://localhost:5679)
 2. Go to **Settings** → **Import from JSON**
-3. Upload `ah-scraper-workflow.json`
+3. Upload `AH Scraper.json`
 4. Click **Import**
 
-### 2. Configure Workflow
-Update the **"Set Configuration"** node with your settings:
+### 2. Activate Credentials  
+⚠️ **Important**: After importing, you must reactivate the PostgreSQL credentials:
+1. Go to **Credentials** in N8N
+2. Edit the PostgreSQL credential
+3. Re-enter the password and save
+
+### 3. Current Configuration
+The workflow is pre-configured with production settings:
 
 ```json
 {
-  "scraper_api_url": "http://scraper-api:8000",
-  "webhook_url": "http://n8n:5678/webhook/scraper-complete", 
-  "max_products": 1000,
-  "categories_limit": 5,
-  "notification_email": "your-email@example.com"
+  "scraper_api_url": "http://ah-scraper:8000",
+  "webhook_url": "http://n8n:5678/webhook/scraper-complete",
+  "max_products": 100,
+  "priority": "high",
+  "notify_on_complete": true
 }
 ```
 
@@ -38,28 +50,40 @@ Update the **"Set Configuration"** node with your settings:
 2. Click **"Test workflow"** to run manually
 3. Monitor execution in the **Executions** tab
 
-## 🔄 Workflow Flow
+## 🔄 Workflow Architecture
 
+### Main Processing Flow
 ```
-[Daily Trigger] 
+[Manual/Schedule Trigger]
     ↓
-[Set Configuration] 
+[Set AH Configuration] (ah-scraper:8000 endpoint)
     ↓
-[Start Scraper Job] ← FastAPI POST /scrape
+[Cleanup Previous Scraping] 
     ↓
-[Format Job Info]
+[Start AH Scraper] ← POST http://ah-scraper:8000/scrape
     ↓
-[Wait 30s] ← Monitoring Loop
+[Format Job Info] (job_id, status, message)
+    ↓
+[Wait 5 seconds] ← Progress Monitoring Loop
     ↓         ↑
-[Check Status] ← FastAPI GET /jobs/{id}
+[Check AH Progress] ← GET /progress
     ↓         ↑
-[Completed?] → [Continue Loop]
+[Route Based on Completion] → [Log Progress & Loop Back]
+    ↓ (when idle/completed)
+[Get Scraper Results] ← GET /jobs/{job_id}/results
     ↓
-[Get Results] ← FastAPI GET /jobs/{id}/results
+[Transform Products for DB] (JSONB format)
     ↓
-[Process Results]
+[Insert Products to PostgreSQL] (raw.products table)
+```
+
+### Completion Notification Flow
+```
+[Webhook - Scraper Complete] (/webhook/scraper-complete)
     ↓
-[Success Notification]
+[Analyze Job Status] (parse completion payload)
+    ↓
+[Send Email Notification] (success/failure alerts)
 ```
 
 ## 📊 Monitoring

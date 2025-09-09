@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Infrastructure monitoring setup with Prometheus/Grafana
 - Database initialization scripts for PostgreSQL
 - Agent-specific Claude Code instances in all project directories
+- Production-ready AH Scraper workflow with complete error handling
 
 ### Changed
 - **BREAKING**: Upgraded PostgreSQL from version 15 to 18rc1-alpine
@@ -30,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - N8N workflow synchronization between local JSON files and live workflows
 - API key authentication for N8N workflow management
 - Container networking and service dependencies
+- AH Scraper N8N workflow service endpoint mismatches (ah-scraper-api → ah-scraper)
+- N8N webhook routing and completion notification handling
+- PostgreSQL credential integration in N8N workflows
+- Workflow progress monitoring and email notification system
 
 ### Removed
 - Outdated N8N workflow JSON files (corrupted during PostgreSQL upgrade)
