@@ -33,6 +33,9 @@ export interface DatabaseProcessorConfig {
   progressUpdateInterval: number;
   enforceStructureValidation: boolean; // New: force structure validation
   schemaVersion?: string; // New: schema version override
+  // Accept certain metadata fields alongside the unified structure
+  allowExtraMetaFields?: boolean;
+  allowedExtraFields?: string[];
 }
 
 export interface ProcessingBatchResult {
@@ -63,13 +66,16 @@ export class DatabaseProcessorAdapter extends EventEmitter {
   private processorInstance: BaseProcessor<any> | null = null;
   private structureValidator = new StructureValidator();
   private initialized = false;
+  private static readonly DEFAULT_ALLOWED_META_FIELDS = ['job_id','raw_product_id','external_id','schema_version'];
 
   constructor(config: DatabaseProcessorConfig) {
     super();
     this.config = {
       ...config,
       enforceStructureValidation: config.enforceStructureValidation ?? true,
-      schemaVersion: config.schemaVersion || CURRENT_SCHEMA_VERSION
+      schemaVersion: config.schemaVersion || CURRENT_SCHEMA_VERSION,
+      allowExtraMetaFields: config.allowExtraMetaFields ?? true,
+      allowedExtraFields: config.allowedExtraFields ?? DatabaseProcessorAdapter.DEFAULT_ALLOWED_META_FIELDS
     };
     
     // Validate shop type immediately during construction
@@ -429,7 +435,10 @@ export class DatabaseProcessorAdapter extends EventEmitter {
       const transformedProduct = await this.processorInstance!.transformSingle(rawProduct.raw_data);
       
       // Validate structure compliance before returning
-      const validationResult = this.structureValidator.validateCompleteStructure(transformedProduct);
+      const validationResult = this.structureValidator.validateCompleteStructure(transformedProduct, {
+        allowExtraFields: false,
+        allowedExtraFields: this.config.allowExtraMetaFields ? (this.config.allowedExtraFields || DatabaseProcessorAdapter.DEFAULT_ALLOWED_META_FIELDS) : []
+      });
       
       if (!validationResult.isValid) {
         const errorMessages = [

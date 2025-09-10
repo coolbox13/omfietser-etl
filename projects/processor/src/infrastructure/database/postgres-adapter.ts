@@ -34,6 +34,7 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
   private connection: DatabaseConnection;
   private logger = getLogger();
   private structureValidator = new StructureValidator();
+  private static readonly DEFAULT_ALLOWED_META_FIELDS = ['job_id','raw_product_id','external_id','schema_version'];
 
   constructor(connection: DatabaseConnection) {
     this.connection = connection;
@@ -528,8 +529,12 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
   }
 
   async insertProcessedProduct(product: ProcessedProductInsert): Promise<ProcessedProduct> {
-    // Validate structure compliance before insert
-    const validationResult = this.structureValidator.validateCompleteStructure(product);
+    // Validate structure compliance before insert (allow whitelisted meta fields)
+    const allowedExtraFields = this.getAllowedExtraFields();
+    const validationResult = this.structureValidator.validateCompleteStructure(product, {
+      allowExtraFields: false,
+      allowedExtraFields
+    });
     if (!validationResult.isValid) {
       const errorMessages = [
         ...validationResult.missingFields.map(field => `missing field: ${field}`),
@@ -632,9 +637,13 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
   async insertProcessedProducts(products: ProcessedProductInsert[]): Promise<ProcessedProduct[]> {
     if (products.length === 0) return [];
 
-    // Validate all products before batch insert
+    // Validate all products before batch insert (allow whitelisted meta fields)
+    const allowedExtraFields = this.getAllowedExtraFields();
     for (const product of products) {
-      const validationResult = this.structureValidator.validateCompleteStructure(product);
+      const validationResult = this.structureValidator.validateCompleteStructure(product, {
+        allowExtraFields: false,
+        allowedExtraFields
+      });
       if (!validationResult.isValid) {
         const errorMessages = [
           ...validationResult.missingFields.map(field => `missing field: ${field}`),
@@ -1043,9 +1052,14 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
     const violations: string[] = [];
     let compliantCount = 0;
 
+    const allowedExtraFields = this.getAllowedExtraFields();
+
     for (let i = 0; i < products.length; i++) {
       const product = products[i];
-      const validationResult = this.structureValidator.validateCompleteStructure(product);
+      const validationResult = this.structureValidator.validateCompleteStructure(product, {
+        allowExtraFields: false,
+        allowedExtraFields
+      });
       
       if (validationResult.isValid) {
         compliantCount++;
@@ -1070,5 +1084,22 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
       total: products.length,
       violations
     };
+  }
+
+  /**
+   * Returns the list of extra fields that are allowed during structure validation.
+   * Controlled via env vars:
+   * - STRUCTURE_ALLOW_META_FIELDS (default: 'true')
+   * - STRUCTURE_ALLOWED_EXTRA_FIELDS (comma-separated list)
+   */
+  private getAllowedExtraFields(): string[] {
+    const allowMeta = (process.env.STRUCTURE_ALLOW_META_FIELDS || 'true').toLowerCase() !== 'false';
+    if (!allowMeta) return [];
+
+    const envList = (process.env.STRUCTURE_ALLOWED_EXTRA_FIELDS || '').trim();
+    if (envList.length > 0) {
+      return envList.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return PostgreSQLAdapter.DEFAULT_ALLOWED_META_FIELDS;
   }
 }

@@ -173,6 +173,21 @@ Note: Running the entire test suite currently shows 1 failing spec in existing t
 - Provide DB env variables to run the CLI/API smoke test against a real PostgreSQL instance.
 - Optionally update the failing legacy test to assert returned error results instead of expecting a thrown error.
 
+## Configuration
+- You can allow specific metadata fields to be present alongside the 32-field unified schema during validation.
+
+Environment variables (DB/validation layer):
+- STRUCTURE_ALLOW_META_FIELDS: "true" | "false" (default: true)
+- STRUCTURE_ALLOWED_EXTRA_FIELDS: Comma-separated list (default: job_id,raw_product_id,external_id,schema_version)
+
+Adapter (per-job) configuration:
+- allowExtraMetaFields?: boolean (default: true)
+- allowedExtraFields?: string[] (default: ["job_id","raw_product_id","external_id","schema_version"])
+
+Notes:
+- This keeps strict enforcement of the 32 required fields while permitting a controlled set of extras for ETL/debugging.
+- Disable by setting STRUCTURE_ALLOW_META_FIELDS=false or passing allowExtraMetaFields=false at adapter creation.
+
 ## Additional Context
 - System: TypeScript application in Docker container
 - Database: PostgreSQL with NOT NULL constraints
