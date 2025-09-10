@@ -2,6 +2,8 @@
 import { BaseProcessor, BaseProcessorConfig } from './base';
 import { UnifiedProduct, UnitPrice } from '../types/product';
 import { JumboTransformError } from '../types/errors';
+import { serializeError } from '../utils/error';
+import { getLogger } from '../infrastructure/logging';
 import { CategoryNormalizer } from '../core/services/category/normalizer';
 import { normalizeUnit, parsePromotionMechanism } from '../utils/calculate-fields';
 import { createProductTemplate, UnifiedProductTemplate } from '../core/structure/unified-product-template';

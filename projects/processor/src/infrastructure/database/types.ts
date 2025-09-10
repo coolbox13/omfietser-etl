@@ -174,6 +174,7 @@ export interface ProcessingErrorInsert {
   job_id: string;
   raw_product_id?: string;
   product_id?: string;
+  shop_type: string;
   error_type: string;
   error_message: string;
   error_details?: any;

@@ -185,3 +185,100 @@ export class PlusTransformError extends TransformationError {
     Object.setPrototypeOf(this, PlusTransformError.prototype);
   }
 }
+
+/**
+ * Utility functions for consistent error logging across processors
+ */
+
+/**
+ * Log a detailed processing error with context
+ */
+export function logProcessingError(
+  logger: any,
+  error: unknown,
+  context: {
+    operation: string;
+    shopType: string;
+    productId: string;
+    productData?: any;
+    additionalContext?: Record<string, any>;
+  }
+): void {
+  const serializedError = serializeError(error);
+  
+  logger.error(`${context.operation} failed for ${context.shopType} product ${context.productId}`, {
+    context: {
+      ...context,
+      error: serializedError,
+      timestamp: new Date().toISOString(),
+      productPreview: context.productData ? {
+        fields: Object.keys(context.productData || {}),
+        dataSize: JSON.stringify(context.productData).length,
+        title: context.productData?.title?.substring?.(0, 50),
+        category: context.productData?.category || context.productData?.mainCategory
+      } : undefined
+    }
+  });
+}
+
+/**
+ * Log a debug message for successful processing steps
+ */
+export function logProcessingSuccess(
+  logger: any,
+  context: {
+    operation: string;
+    shopType: string;
+    productId: string;
+    result?: any;
+    timing?: { startTime: number; endTime?: number };
+    additionalContext?: Record<string, any>;
+  }
+): void {
+  const duration = context.timing ? 
+    (context.timing.endTime || Date.now()) - context.timing.startTime : 
+    undefined;
+
+  logger.debug(`${context.operation} succeeded for ${context.shopType} product ${context.productId}`, {
+    context: {
+      ...context,
+      timestamp: new Date().toISOString(),
+      duration: duration ? `${duration}ms` : undefined,
+      resultPreview: context.result ? {
+        resultType: typeof context.result,
+        resultFields: typeof context.result === 'object' ? Object.keys(context.result) : undefined
+      } : undefined
+    }
+  });
+}
+
+/**
+ * Log variable state changes for debugging
+ */
+export function logVariableState(
+  logger: any,
+  context: {
+    operation: string;
+    shopType: string;
+    productId: string;
+    variables: Record<string, any>;
+    stage: string;
+  }
+): void {
+  logger.debug(`Variable state at ${context.stage}`, {
+    context: {
+      ...context,
+      timestamp: new Date().toISOString(),
+      variableStates: Object.entries(context.variables).reduce((acc, [key, value]) => {
+        acc[key] = {
+          type: typeof value,
+          value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+          isNull: value === null,
+          isUndefined: value === undefined,
+          length: Array.isArray(value) ? value.length : (typeof value === 'string' ? value.length : undefined)
+        };
+        return acc;
+      }, {} as Record<string, any>)
+    }
+  });
+}

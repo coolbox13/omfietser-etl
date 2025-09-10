@@ -323,8 +323,8 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
 
   async createProcessingJob(job: ProcessingJobInsert): Promise<ProcessingJob> {
     try {
-      // Generate UUID for job_id if not provided
-      const jobId = job.job_id || `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // Generate job_id
+      const jobId = `job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       
       const sql = `
         INSERT INTO processing_jobs (job_id, shop_type, batch_size, metadata)
@@ -390,27 +390,31 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
     stats: { success_count: number; failed_count: number; skipped_count: number; deduped_count: number }
   ): Promise<void> {
     try {
+      this.logger.info('DEBUG completeProcessingJob called with stats:', { jobId, stats });
       const sql = `
         UPDATE processing_jobs 
         SET status = 'completed',
             completed_at = CURRENT_TIMESTAMP,
-            duration_ms = EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - started_at)) * 1000,
-            success_count = $1,
-            failed_count = $2, 
-            skipped_count = $3,
-            deduped_count = $4,
-            processed_count = $1 + $2 + $3,
+            duration_ms = (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - started_at)) * 1000)::INTEGER,
+            success_count = $1::INTEGER,
+            failed_count = $2::INTEGER, 
+            skipped_count = $3::INTEGER,
+            deduped_count = $4::INTEGER,
+            processed_count = ($1::INTEGER + $2::INTEGER + $3::INTEGER),
             updated_at = CURRENT_TIMESTAMP
         WHERE job_id = $5
       `;
 
-      await this.connection.query(sql, [
+      const params = [
         stats.success_count,
         stats.failed_count, 
         stats.skipped_count,
         stats.deduped_count,
         jobId
-      ]);
+      ];
+
+      this.logger.info('DEBUG about to execute SQL with params:', { jobId, params });
+      await this.connection.query(sql, params);
 
       this.logger.info('Completed processing job', { jobId, stats });
     } catch (error) {
@@ -549,7 +553,7 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
           price_per_standard_unit, current_price_per_standard_unit,
           discount_absolute, discount_percentage, is_active
         ) VALUES (
-          COALESCE($1, $2 || '_' || $3 || '_' || $4), $2, $3, COALESCE($4, $5), $6, $7,
+          COALESCE($1, $2::TEXT || '_' || COALESCE($3, '')::TEXT || '_' || COALESCE($4, $5)::TEXT), $2, $3, COALESCE($4, $5), $6, $7,
           $8, $9, $10, $11, $12,
           $13, $14, $15, $16,
           $17, $18, $19, $20,
@@ -602,6 +606,12 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
         product.is_active // $37
       ];
 
+      this.logger.info('DEBUG about to insert processed product with params:', { 
+        shop_type: product.shop_type,
+        external_id: product.external_id,
+        paramCount: params.length 
+      });
+      
       const result = await this.connection.query(sql, params);
       this.logger.info('Inserted processed product', { 
         unifiedId: result.rows[0].unified_id,
@@ -610,7 +620,11 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
       });
       return result.rows[0];
     } catch (error) {
-      this.logger.error('Failed to insert processed product', { product, error });
+      this.logger.error('Failed to insert processed product', { 
+        shop_type: product.shop_type,
+        external_id: product.external_id,
+        error 
+      });
       throw error;
     }
   }
@@ -649,7 +663,7 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
               price_per_standard_unit, current_price_per_standard_unit,
               discount_absolute, discount_percentage, is_active
             ) VALUES (
-              COALESCE($1, $2 || '_' || $3 || '_' || $4), $2, $3, COALESCE($4, $5), $6, $7,
+              COALESCE($1, $2::TEXT || '_' || COALESCE($3, '')::TEXT || '_' || COALESCE($4, $5)::TEXT), $2, $3, COALESCE($4, $5), $6, $7,
               $8, $9, $10, $11, $12,
               $13, $14, $15, $16,
               $17, $18, $19, $20,
@@ -738,6 +752,13 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
             product.is_active // $37
           ];
 
+          this.logger.info('DEBUG about to batch insert product:', { 
+            shop_type: product.shop_type,
+            external_id: product.external_id,
+            paramCount: params.length,
+            productIndex: insertedProducts.length
+          });
+          
           const result = await client.query(sql, params);
           insertedProducts.push(result.rows[0]);
         }

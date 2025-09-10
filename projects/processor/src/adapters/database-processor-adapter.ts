@@ -82,20 +82,31 @@ export class DatabaseProcessorAdapter extends EventEmitter {
 
   private async initializeAdapter(): Promise<void> {
     if (this.initializationPromise) {
+      this.logger.error('TRACE: Returning existing initialization promise');
       return this.initializationPromise;
     }
 
+    this.logger.error('TRACE: Starting new initialization promise');
+
     this.initializationPromise = (async () => {
       try {
+        this.logger.error('TRACE: Starting database adapter initialization');
         this.dbAdapter = await getDatabaseAdapter();
+        this.logger.error('TRACE: Database adapter obtained successfully', { dbAdapterExists: !!this.dbAdapter });
         this.initializeProcessor();
+        this.logger.error('TRACE: Processor initialized successfully', { processorExists: !!this.processorInstance });
         this.initialized = true;
+        this.logger.error('TRACE: DatabaseProcessorAdapter fully initialized', { initialized: this.initialized });
       } catch (error) {
-        this.logger.error('Failed to initialize database adapter', { error });
+        this.logger.error('DEBUG: Failed to initialize database adapter', { 
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error 
+        });
+        this.initialized = false;
         throw error;
       }
     })();
 
+    this.logger.error('TRACE: About to return initialization promise');
     return this.initializationPromise;
   }
 
@@ -143,8 +154,28 @@ export class DatabaseProcessorAdapter extends EventEmitter {
   // =============================================
 
   public async processBatch(rawProducts: RawProduct[]): Promise<ProcessingBatchResult> {
+    this.logger.error('TRACE: processBatch called', { 
+      initialized: this.initialized, 
+      processorExists: !!this.processorInstance, 
+      dbAdapterExists: !!this.dbAdapter,
+      initPromiseExists: !!this.initializationPromise
+    });
+
     if (!this.initialized || !this.processorInstance || !this.dbAdapter) {
-      throw new Error('Adapter not fully initialized');
+      const details = {
+        initialized: this.initialized,
+        processorInstance: !!this.processorInstance,
+        dbAdapter: !!this.dbAdapter,
+        initializationPromise: !!this.initializationPromise
+      };
+      
+      let specificError = 'Adapter not fully initialized:';
+      if (!this.initialized) specificError += ' initialized=false';
+      if (!this.processorInstance) specificError += ' processorInstance=null';
+      if (!this.dbAdapter) specificError += ' dbAdapter=null';
+      
+      this.logger.error('TRACE: processBatch failing - adapter not fully initialized', details);
+      throw new Error(specificError);
     }
 
     const result: ProcessingBatchResult = {
@@ -256,6 +287,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
             job_id: this.config.jobId,
             raw_product_id: rawProduct.id,
             product_id: rawProduct.id,
+            shop_type: this.config.shopType,
             error_type: processedResult?.error?.type || 'PROCESSING_ERROR',
             error_message: processedResult?.error?.message || 'Unknown processing error',
             error_details: processedResult?.error?.details || {},
@@ -311,6 +343,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
           job_id: this.config.jobId,
           raw_product_id: rawProduct.id,
           product_id: rawProduct.id,
+          shop_type: this.config.shopType,
           error_type: 'BATCH_PROCESSING_ERROR',
           error_message: error instanceof Error ? error.message : 'Batch processing failed',
           error_details: { originalError: error },

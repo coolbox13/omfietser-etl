@@ -250,6 +250,12 @@ export class JobManager extends EventEmitter {
 
   private async processJobAsync(job: ProcessingJob, rawProducts: RawProduct[]): Promise<void> {
     const jobId = job.job_id;
+    this.logger.info('DEBUG processJobAsync started', { 
+      jobId, 
+      shopType: job.shop_type,
+      rawProductsCount: rawProducts.length 
+    });
+    
     const batchSize = job.batch_size;
     const totalBatches = Math.ceil(rawProducts.length / batchSize);
     const outputTarget = getOutputTarget();
@@ -352,12 +358,24 @@ export class JobManager extends EventEmitter {
       }
 
       // Complete the job
+      this.logger.info('DEBUG about to call completeJob with stats:', {
+        jobId,
+        stats: {
+          success_count: totalSuccess,
+          failed_count: totalFailed,
+          skipped_count: totalSkipped,
+          deduped_count: totalDeduped
+        }
+      });
+      
       await this.completeJob(jobId, {
         success_count: totalSuccess,
         failed_count: totalFailed,
         skipped_count: totalSkipped,
         deduped_count: totalDeduped
       });
+      
+      this.logger.info('DEBUG completeJob finished successfully', { jobId });
 
       const duration = job.started_at ? Date.now() - job.started_at.getTime() : 0;
 
@@ -426,8 +444,25 @@ export class JobManager extends EventEmitter {
         }
       });
 
+      this.logger.info('About to call waitForInitialization', { jobId: job.job_id });
+      
+      // Wait for adapter initialization before processing
+      await adapter.waitForInitialization();
+      
+      this.logger.info('waitForInitialization completed successfully', { jobId: job.job_id });
+
       // Process the batch using the integrated adapter
+      this.logger.info('DEBUG about to call adapter.processBatch', { 
+        jobId: job.job_id,
+        rawProductsCount: rawProducts.length 
+      });
+      
       const batchResult = await adapter.processBatch(rawProducts);
+      
+      this.logger.info('DEBUG adapter.processBatch completed', { 
+        jobId: job.job_id,
+        result: batchResult 
+      });
 
       // Convert to the format expected by the job manager
       const result = {
@@ -491,6 +526,7 @@ export class JobManager extends EventEmitter {
             job_id: err.job_id,
             raw_product_id: err.raw_product_id,
             product_id: err.product_id,
+            shop_type: job.shop_type,
             error_type: err.error_type,
             error_message: err.error_message,
             error_details: err.error_details,

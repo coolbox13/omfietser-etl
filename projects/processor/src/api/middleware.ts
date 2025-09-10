@@ -166,7 +166,9 @@ export function createMiddleware(config: MiddlewareConfig) {
   const validateJobId = (req: Request, res: Response, next: NextFunction) => {
     const { jobId } = req.params;
     
-    if (jobId && !isValidUUID(jobId)) {
+    console.log('DEBUG validateJobId:', { jobId, isValid: jobId ? isValidJobId(jobId) : 'no jobId' });
+    
+    if (jobId && !isValidJobId(jobId)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid job ID format',
@@ -218,6 +220,17 @@ function generateRequestId(): string {
 function isValidUUID(str: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(str);
+}
+
+function isValidJobId(str: string): boolean {
+  // Accept both UUID format and our custom job_timestamp_random format
+  if (isValidUUID(str)) {
+    return true;
+  }
+  
+  // Accept job_timestamp_random format like job_1757452982246_6ny9ob
+  const jobIdRegex = /^job_\d+_[a-z0-9]+$/;
+  return jobIdRegex.test(str);
 }
 
 // Response helper functions

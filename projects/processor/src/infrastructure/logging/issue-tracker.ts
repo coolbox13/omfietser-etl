@@ -10,6 +10,7 @@ import {
   IssueStatistics
 } from '../../types/monitoring';
 import { getLogger } from './logger';
+import { serializeError } from '../../utils/error';
 import crypto from 'crypto';
 
 /**

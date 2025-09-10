@@ -1,7 +1,7 @@
 // src/processors/base.ts
 import { chunk } from 'lodash';
 import { getLogger } from '../infrastructure/logging';
-import { ValidationError, TransformationError } from '../utils/error';
+import { ValidationError, TransformationError, serializeError } from '../utils/error';
 import { UnifiedProduct, ProcessingResult } from '../types/product';
 import { dedupeProducts } from '../utils/dedupe';
 import { createConfig } from '../config';
@@ -171,10 +171,24 @@ export abstract class BaseProcessor<T> {
         shopType: this.shopType
       };
     } catch (error) {
+      const serializedError = serializeError(error);
       this.logger.error(`Failed to process ${this.shopType} data`, {
         context: {
           shopType: this.shopType,
-          error
+          error: serializedError,
+          processingState: {
+            statsBeforeError: {
+              totalProcessed: this.stats.totalProcessed,
+              success: this.stats.success,
+              failed: this.stats.failed,
+              skipped: this.stats.skipped
+            },
+            configUsed: {
+              inputFile: this.config.inputFile,
+              batchSize: this.config.batchSize,
+              parallelProcessing: this.config.parallelProcessing
+            }
+          }
         }
       });
       throw error;
@@ -187,29 +201,75 @@ export abstract class BaseProcessor<T> {
    * @returns Promise<UnifiedProduct> The transformed and validated product
    */
   public async transformSingle(rawProduct: T): Promise<UnifiedProduct> {
+    const productId = this.getProductId(rawProduct);
+    
+    this.logger.debug(`Starting single product transformation`, {
+      context: {
+        shopType: this.shopType,
+        productId,
+        productFields: Object.keys(rawProduct || {})
+      }
+    });
+
     try {
       // Check if product should be skipped
       if (this.shouldSkipProduct(rawProduct)) {
+        this.logger.debug(`Product should be skipped`, {
+          context: {
+            shopType: this.shopType,
+            productId,
+            reason: 'Failed business rules validation'
+          }
+        });
         throw new Error('Product should be skipped based on business rules');
       }
 
       // Transform product using the processor's specific logic
+      this.logger.debug(`Calling transformProduct for ${productId}`);
       const transformed = this.transformProduct(rawProduct);
       
+      this.logger.debug(`Product transformed successfully`, {
+        context: {
+          shopType: this.shopType,
+          productId,
+          transformedFields: Object.keys(transformed)
+        }
+      });
+      
       // Ensure complete structure compliance and get validated product
+      this.logger.debug(`Starting validation for ${productId}`);
       const validatedProduct = this.validateRequiredFields(transformed);
       
+      this.logger.debug(`Product validated successfully`, {
+        context: {
+          shopType: this.shopType,
+          productId,
+          validatedFields: Object.keys(validatedProduct)
+        }
+      });
+      
       // Apply field calculations
+      this.logger.debug(`Calculating fields for ${productId}`);
       const calculatedProduct = calculateFields(validatedProduct);
+      
+      this.logger.debug(`Single product transformation completed successfully`, {
+        context: {
+          shopType: this.shopType,
+          productId,
+          finalFields: Object.keys(calculatedProduct)
+        }
+      });
       
       return calculatedProduct;
     } catch (error) {
+      const serializedError = serializeError(error);
       this.logger.error('Failed to transform single product', {
         context: {
           shopType: this.shopType,
-          productId: this.getProductId(rawProduct)
-        },
-        error
+          productId,
+          error: serializedError,
+          productData: JSON.stringify(rawProduct, null, 2)
+        }
       });
       throw error;
     }
@@ -245,37 +305,91 @@ export abstract class BaseProcessor<T> {
   private async processBatch(batch: T[], batchIndex: number): Promise<UnifiedProduct[]> {
     const startTime = Date.now();
     const transformedProducts: UnifiedProduct[] = [];
+    
+    // Track batch-specific metrics
+    let batchSuccessCount = 0;
+    let batchFailedCount = 0;
+    let batchSkippedCount = 0;
+    
+    this.logger.debug(`Starting batch ${batchIndex} processing`, {
+      context: {
+        shopType: this.shopType,
+        batchIndex,
+        batchSize: batch.length,
+        totalProcessedSoFar: this.stats.totalProcessed
+      }
+    });
 
-    for (const product of batch) {
+    for (let productIndex = 0; productIndex < batch.length; productIndex++) {
+      const product = batch[productIndex];
+      const productId = this.getProductId(product);
+      
       try {
         this.stats.totalProcessed++;
+        
+        this.logger.debug(`Processing product ${productIndex + 1}/${batch.length} in batch ${batchIndex}`, {
+          context: {
+            shopType: this.shopType,
+            batchIndex,
+            productIndex,
+            productId,
+            totalProcessed: this.stats.totalProcessed
+          }
+        });
 
         // Check if product should be skipped
         if (this.shouldSkipProduct(product)) {
           this.stats.skipped++;
+          batchSkippedCount++;
 
-          // Enhanced logging for skipped products
-          this.logger.debug(`Skipped product: ${this.getProductId(product)}`, {
+          // Enhanced logging for skipped products with reasoning
+          this.logger.debug(`Skipped product: ${productId}`, {
             context: {
               shopType: this.shopType,
-              productId: this.getProductId(product),
-              reason: 'Failed validation in shouldSkipProduct'
+              productId,
+              batchIndex,
+              productIndex,
+              reason: 'Failed validation in shouldSkipProduct',
+              productFields: Object.keys(product || {})
             }
           });
 
           continue;
         }
 
-        // Transform product
+        // Transform product with detailed logging
+        this.logger.debug(`Transforming product ${productId}`);
         const transformed = this.transformProduct(product);
-
+        
+        this.logger.debug(`Product ${productId} transformed, validating...`);
         // Ensure complete structure compliance and get validated product
         const validatedProduct = this.validateRequiredFields(transformed);
-
+        
+        this.logger.debug(`Product ${productId} validated successfully`);
         transformedProducts.push(validatedProduct);
         this.stats.success++;
+        batchSuccessCount++;
       } catch (error) {
         this.stats.failed++;
+        batchFailedCount++;
+        
+        this.logger.error(`Error processing product ${productIndex + 1}/${batch.length} in batch ${batchIndex}`, {
+          context: {
+            shopType: this.shopType,
+            batchIndex,
+            productIndex,
+            productId,
+            error: serializeError(error),
+            batchProgress: {
+              processed: productIndex + 1,
+              total: batch.length,
+              successSoFar: batchSuccessCount,
+              failedSoFar: batchFailedCount,
+              skippedSoFar: batchSkippedCount
+            }
+          }
+        });
+        
         this.handleProcessingError(error, product);
       }
     }
@@ -283,48 +397,44 @@ export abstract class BaseProcessor<T> {
     const endTime = Date.now();
     const duration = endTime - startTime;
 
-    const skippedCount = batch.length - transformedProducts.length - this.countFailuresInBatch(batch);
-    const failedCount = this.countFailuresInBatch(batch);
-
-    // Update progress tracker
+    // Update progress tracker with batch-specific counts
     this.progressTracker.updateBatchProgress(
       this.shopType as ShopType,
       batchIndex,
       {
         processed: batch.length,
-        successful: transformedProducts.length,
-        failed: failedCount,
-        skipped: skippedCount
+        successful: batchSuccessCount,
+        failed: batchFailedCount,
+        skipped: batchSkippedCount
       }
     );
 
-    this.logger.debug(`Batch ${batchIndex} processing report`, {
-      shop: this.shopType,
-      totalProcessed: batch.length,
-      success: transformedProducts.length,
-      skipped: skippedCount,
-      failed: failedCount,
-      duration,
-      processedPerSecond: Math.round(batch.length / (duration / 1000))
+    this.logger.info(`Batch ${batchIndex} completed`, {
+      context: {
+        shopType: this.shopType,
+        batchIndex,
+        batchResults: {
+          totalInBatch: batch.length,
+          successful: batchSuccessCount,
+          failed: batchFailedCount,
+          skipped: batchSkippedCount,
+          duration: `${duration}ms`,
+          processingRate: `${Math.round(batch.length / (duration / 1000))} products/second`,
+          successRate: `${((batchSuccessCount / batch.length) * 100).toFixed(1)}%`,
+          failureRate: `${((batchFailedCount / batch.length) * 100).toFixed(1)}%`
+        },
+        overallProgress: {
+          totalProcessed: this.stats.totalProcessed,
+          totalSuccess: this.stats.success,
+          totalFailed: this.stats.failed,
+          totalSkipped: this.stats.skipped
+        }
+      }
     });
 
     return transformedProducts;
   }
 
-  private countFailuresInBatch(batch: T[]): number {
-    return batch.filter(product => {
-      try {
-        if (this.shouldSkipProduct(product)) {
-          return false;
-        }
-        // Just check if transformation would cause an error
-        this.transformProduct(product);
-        return false;
-      } catch (error) {
-        return true;
-      }
-    }).length;
-  }
 
   /**
    * Validate complete structure compliance using the Phase 1 validation system
@@ -394,6 +504,17 @@ export abstract class BaseProcessor<T> {
 
   private handleProcessingError(error: unknown, product: T): void {
     const productId = this.getProductId(product);
+    const serializedError = serializeError(error);
+
+    // Log the raw product data for debugging failed transformations
+    this.logger.debug(`Processing error - Raw product data`, {
+      context: {
+        shopType: this.shopType,
+        productId,
+        productData: JSON.stringify(product, null, 2),
+        errorPreview: error instanceof Error ? error.message : String(error)
+      }
+    });
 
     // Track error counts
     this.progressTracker.incrementErrorCount(this.shopType as ShopType);
@@ -406,7 +527,11 @@ export abstract class BaseProcessor<T> {
           processingStep: 'product_validation',
           shopType: this.shopType as ShopType,
           productId,
-          additionalData: error.details
+          additionalData: {
+            ...error.details,
+            errorStack: serializedError.stack,
+            productFields: Object.keys(product || {})
+          }
         },
         JSON.stringify(product),
         null,
@@ -417,7 +542,9 @@ export abstract class BaseProcessor<T> {
         context: {
           shopType: this.shopType,
           productId,
-          error
+          error: serializedError,
+          validationDetails: error.details,
+          productSize: JSON.stringify(product).length
         }
       });
     } else if (error instanceof TransformationError) {
@@ -427,7 +554,11 @@ export abstract class BaseProcessor<T> {
           processingStep: 'product_transformation',
           shopType: this.shopType as ShopType,
           productId,
-          additionalData: error.details
+          additionalData: {
+            ...error.details,
+            errorStack: serializedError.stack,
+            productFields: Object.keys(product || {})
+          }
         },
         JSON.stringify(product),
         null,
@@ -438,33 +569,57 @@ export abstract class BaseProcessor<T> {
         context: {
           shopType: this.shopType,
           productId,
-          error
+          error: serializedError,
+          transformationDetails: error.details,
+          productSize: JSON.stringify(product).length
         }
       });
     } else {
+      // Log unexpected errors with full context
       this.logger.error(`Unexpected error processing product ${productId}`, {
         context: {
           shopType: this.shopType,
           productId,
-          error,
-          product
+          error: serializedError,
+          productFields: Object.keys(product || {}),
+          productSize: JSON.stringify(product).length,
+          errorType: error?.constructor?.name || typeof error
         }
       });
+
+      // Track unexpected errors as issues
+      this.issueTracker.trackIssue(
+        'TRANSFORMATION_ERROR',
+        {
+          processingStep: 'product_processing_unexpected',
+          shopType: this.shopType as ShopType,
+          productId,
+          additionalData: {
+            errorType: error?.constructor?.name || typeof error,
+            errorStack: serializedError.stack,
+            productFields: Object.keys(product || {})
+          }
+        },
+        JSON.stringify(product),
+        null,
+        `Investigate unexpected error: ${serializedError.message}`
+      );
     }
 
-    // Create detailed log entry for debugging
-    this.logger.debug(`Product data for failed product ${productId}`, {
-      context: {
-        shopType: this.shopType,
-        productId,
-        productData: JSON.stringify(product, null, 2)
-      }
-    });
-
+    // Create detailed error entry for stats with full error information
     this.stats.errors.push({
       productId,
-      error: error instanceof Error ? error.message : String(error),
-      details: error instanceof TransformationError ? error.details : undefined
+      error: serializedError.message || String(error),
+      details: {
+        errorType: serializedError.name || 'UnknownError',
+        stack: serializedError.stack,
+        originalError: serializedError,
+        productPreview: {
+          fields: Object.keys(product || {}),
+          size: JSON.stringify(product).length
+        },
+        ...(error instanceof TransformationError ? error.details : {})
+      }
     });
   }
 
@@ -506,7 +661,7 @@ export abstract class BaseProcessor<T> {
       });
     } catch (error) {
       this.logger.error(`Failed to write error report for ${this.shopType}`, {
-        context: { error }
+        context: { error: serializeError(error) }
       });
     }
   }
@@ -545,7 +700,7 @@ export abstract class BaseProcessor<T> {
       });
     } catch (error) {
       this.logger.error(`Failed to write stats report for ${this.shopType}`, {
-        context: { error }
+        context: { error: serializeError(error) }
       });
     }
   }
@@ -568,13 +723,16 @@ export abstract class BaseProcessor<T> {
     try {
       return JSON.parse(rawData);
     } catch (error) {
+      const serializedError = serializeError(error);
       this.logger.error(`Failed to parse input data for ${this.shopType}`, {
         context: {
           shopType: this.shopType,
-          error
+          error: serializedError,
+          dataPreview: rawData.substring(0, 200) + (rawData.length > 200 ? '...' : ''),
+          dataSize: rawData.length
         }
       });
-      throw new Error(`Failed to parse input data for ${this.shopType}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to parse input data for ${this.shopType}: ${serializedError.message || String(error)}`);
     }
   }
 
@@ -609,7 +767,7 @@ export abstract class BaseProcessor<T> {
     } catch (error) {
       this.logger.warn(`Failed to calculate quality metrics for ${this.shopType}`, {
         context: {
-          error: error instanceof Error ? error.message : String(error)
+          error: serializeError(error)
         }
       });
     }

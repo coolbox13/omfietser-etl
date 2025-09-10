@@ -3,6 +3,7 @@ import { BaseProcessor, BaseProcessorConfig } from './base';
 import { UnifiedProduct } from '../types/product';
 import { AHTransformError } from '../types/errors';
 import { getLogger } from '../infrastructure/logging';
+import { serializeError } from '../utils/error';
 import { CategoryNormalizer } from '../core/services/category/normalizer';
 import { normalizeUnit, parsePromotionMechanism } from '../utils/calculate-fields';
 import { createProductTemplate, UnifiedProductTemplate } from '../core/structure/unified-product-template';
@@ -49,18 +50,43 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
   }
 
   protected shouldSkipProduct(product: AHProduct): boolean {
-    if (!product) return true;
+    const productId = product?.webshopId?.toString() || 'unknown';
+    
+    // Log entry for debugging skip logic
+    this.logger.debug(`Evaluating AH product skip criteria`, {
+      context: {
+        productId,
+        productExists: !!product,
+        title: product?.title?.substring(0, 50)
+      }
+    });
+    
+    if (!product) {
+      this.logger.debug('Skipping product: null/undefined product', {
+        context: { productId }
+      });
+      return true;
+    }
 
     if (product.isVirtualBundle) {
       this.logger.debug('Skipping virtual bundle product', {
-        context: { productId: product.webshopId }
+        context: { 
+          productId: product.webshopId,
+          reason: 'Virtual bundle products are excluded from processing',
+          title: product.title?.substring(0, 50)
+        }
       });
       return true;
     }
 
     if (product.orderAvailabilityStatus !== 'IN_ASSORTMENT') {
       this.logger.debug('Skipping product not in assortment', {
-        context: { productId: product.webshopId }
+        context: { 
+          productId: product.webshopId,
+          orderAvailabilityStatus: product.orderAvailabilityStatus,
+          reason: 'Only IN_ASSORTMENT products are processed',
+          title: product.title?.substring(0, 50)
+        }
       });
       return true;
     }
@@ -71,7 +97,8 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
         context: {
           productId: product.webshopId,
           title: product.title?.substring(0, 50),
-          category: product.mainCategory
+          category: product.mainCategory,
+          reason: 'AH Voordeelshop products are out of scope for target application'
         }
       });
       return true;
@@ -85,11 +112,29 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
           productId: product.webshopId,
           title: product.title?.substring(0, 50),
           isBonus: product.isBonus,
-          hasDiscountLabels: !!product.discountLabels?.length
+          hasDiscountLabels: !!product.discountLabels?.length,
+          priceData: {
+            priceBeforeBonus: product.priceBeforeBonus,
+            currentPrice: product.currentPrice
+          },
+          reason: 'Products without individual pricing (meal kits, bundles) are excluded'
         }
       });
       return true;
     }
+
+    this.logger.debug(`AH product passed skip criteria - will be processed`, {
+      context: {
+        productId: product.webshopId,
+        title: product.title?.substring(0, 50),
+        category: product.mainCategory,
+        priceData: {
+          priceBeforeBonus: product.priceBeforeBonus,
+          currentPrice: product.currentPrice
+        },
+        isPromotion: !!product.isBonus
+      }
+    });
 
     return false;
   }
@@ -99,6 +144,18 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
   }
 
   protected transformProduct(product: AHProduct): UnifiedProduct {
+    const productId = this.getProductId(product);
+    
+    this.logger.debug(`Starting AH product transformation`, {
+      context: {
+        productId,
+        productFields: Object.keys(product || {}),
+        hasImages: !!product.images?.length,
+        hasDiscountLabels: !!product.discountLabels?.length,
+        isPromotion: !!product.isBonus
+      }
+    });
+    
     try {
       // Extract basic product information
       const id = this.getProductId(product);
@@ -151,11 +208,28 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
             title: title?.substring(0, 50)
           }
         });
-        throw new AHTransformError('Missing price data for promotional product', {
+        const error = new AHTransformError('Missing price data for promotional product', {
           id: id,
           availableFields: Object.keys(product),
           missingFields: ['priceBeforeBonus_for_promotion']
         });
+        
+        this.logger.warn(`AH promotional product missing price data`, {
+          context: {
+            productId: id,
+            error: serializeError(error),
+            productAnalysis: {
+              priceBeforeBonus: product.priceBeforeBonus,
+              currentPrice: product.currentPrice,
+              isBonus: product.isBonus,
+              bonusMechanism: product.bonusMechanism,
+              discountLabelsCount: product.discountLabels?.length || 0,
+              hasStructuredPricing
+            }
+          }
+        });
+        
+        throw error;
       }
       
       // For any product (promotional or not), ensure we have some valid price or structured pricing
@@ -169,11 +243,27 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
             title: title?.substring(0, 50)
           }
         });
-        throw new AHTransformError('No valid price information available', {
+        const error = new AHTransformError('No valid price information available', {
           id: id,
           availableFields: Object.keys(product),
           missingFields: ['valid_price']
         });
+        
+        this.logger.warn(`AH product missing valid price information`, {
+          context: {
+            productId: id,
+            error: serializeError(error),
+            priceAnalysis: {
+              priceBeforeBonus: product.priceBeforeBonus,
+              currentPrice: product.currentPrice,
+              hasStructuredPricing,
+              discountLabelsCount: product.discountLabels?.length || 0,
+              title: title?.substring(0, 50)
+            }
+          }
+        });
+        
+        throw error;
       }
 
       // Get promotion information (already declared above for validation)
@@ -307,7 +397,15 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
                   productId: product.webshopId,
                   discountCode: label.code,
                   bonusMechanism: product.bonusMechanism,
-                  label: label
+                  labelDetails: {
+                    code: label.code,
+                    price: label.price,
+                    percentage: label.percentage,
+                    amount: label.amount,
+                    count: label.count,
+                    freeCount: label.freeCount
+                  },
+                  productTitle: product.title?.substring(0, 50)
                 }
               });
               break;
@@ -333,6 +431,11 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
               discountLabels: product.discountLabels,
               hasStructuredDiscount,
               effectiveDiscountPrice,
+              priceData: {
+                priceBeforeBonus: product.priceBeforeBonus,
+                currentPrice: product.currentPrice,
+                isBonus: product.isBonus
+              },
               reason: 'This should not happen - all AH bonus products should have discountLabels'
             }
           });
@@ -371,9 +474,23 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
       this.logger.debug('Successfully transformed AH product', {
         context: {
           productId: id,
-          title,
+          title: title?.substring(0, 50),
           shopType: 'AH',
-          hasPromotion: isPromotion
+          transformationResult: {
+            hasPromotion: isPromotion,
+            finalPricing: {
+              priceBeforeBonus,
+              currentPrice,
+              hasStructuredDiscount,
+              effectiveDiscountPrice
+            },
+            categoryNormalized: mainCategory,
+            hasImage: !!imageURL,
+            quantityInfo: {
+              amount: quantity.amount,
+              unit: quantity.unit
+            }
+          }
         }
       });
 
@@ -463,14 +580,45 @@ export class AHProcessor extends BaseProcessor<AHProduct> {
         is_active: product.orderAvailabilityStatus === 'IN_ASSORTMENT'
       });
     } catch (error) {
-      throw new AHTransformError(
+      const transformError = new AHTransformError(
         error instanceof Error ? error.message : 'Unknown error during transformation',
         {
           id: product.webshopId?.toString() || 'unknown',
           availableFields: Object.keys(product),
-          missingFields: []
+          missingFields: [],
+          partialData: {
+            title: product.title?.substring(0, 50),
+            category: product.mainCategory,
+            priceData: {
+              priceBeforeBonus: product.priceBeforeBonus,
+              currentPrice: product.currentPrice,
+              isBonus: product.isBonus
+            }
+          }
         }
       );
+      
+      this.logger.error('AH product transformation failed', {
+        context: {
+          productId: product.webshopId?.toString() || 'unknown',
+          originalError: serializeError(error),
+          transformError: serializeError(transformError),
+          productData: {
+            title: product.title?.substring(0, 50),
+            mainCategory: product.mainCategory,
+            brand: product.brand,
+            priceBeforeBonus: product.priceBeforeBonus,
+            currentPrice: product.currentPrice,
+            isBonus: product.isBonus,
+            isVirtualBundle: product.isVirtualBundle,
+            orderAvailabilityStatus: product.orderAvailabilityStatus,
+            imagesCount: product.images?.length || 0,
+            discountLabelsCount: product.discountLabels?.length || 0
+          }
+        }
+      });
+      
+      throw transformError;
     }
   }
 
