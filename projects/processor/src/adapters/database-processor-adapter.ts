@@ -161,6 +161,15 @@ export class DatabaseProcessorAdapter extends EventEmitter {
       initPromiseExists: !!this.initializationPromise
     });
 
+    // Ensure adapter is initialized to avoid race conditions
+    await this.waitForInitialization();
+    this.logger.error('TRACE: after waitForInitialization', { 
+      initialized: this.initialized, 
+      processorExists: !!this.processorInstance, 
+      dbAdapterExists: !!this.dbAdapter,
+      initPromiseExists: !!this.initializationPromise
+    });
+
     if (!this.initialized || !this.processorInstance || !this.dbAdapter) {
       const details = {
         initialized: this.initialized,

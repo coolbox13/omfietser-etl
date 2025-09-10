@@ -847,14 +847,15 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
   async insertProcessingError(error: ProcessingErrorInsert): Promise<ProcessingError> {
     try {
       const sql = `
-        INSERT INTO processing_errors (job_id, raw_product_id, product_id, error_type, error_message, error_details, stack_trace, severity)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO processing_errors (job_id, raw_product_id, product_id, shop_type, error_type, error_message, error_details, stack_trace, severity)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
       `;
       const params = [
         error.job_id,
         error.raw_product_id,
         error.product_id,
+        error.shop_type,
         error.error_type,
         error.error_message,
         error.error_details ? JSON.stringify(error.error_details) : null,
@@ -879,14 +880,15 @@ export class PostgreSQLAdapter implements IDatabaseAdapter {
 
         for (const error of errors) {
           const sql = `
-            INSERT INTO processing_errors (job_id, raw_product_id, product_id, error_type, error_message, error_details, stack_trace, severity)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO processing_errors (job_id, raw_product_id, product_id, shop_type, error_type, error_message, error_details, stack_trace, severity)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
           `;
           const params = [
             error.job_id,
             error.raw_product_id,
             error.product_id,
+            error.shop_type,
             error.error_type,
             error.error_message,
             error.error_details ? JSON.stringify(error.error_details) : null,

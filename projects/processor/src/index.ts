@@ -1,7 +1,11 @@
 // src/index.ts
+import dotenv from 'dotenv';
 import { createConfig } from './config';
+
+// Load environment variables from .env file
+dotenv.config();
 import { initializeLogger, getLogger } from './infrastructure/logging';
-import { setupGlobalErrorHandlers } from './utils/error';
+import { setupGlobalErrorHandlers, serializeError } from './utils/error';
 import { AHProcessor } from './processors/ah';
 import { JumboProcessor } from './processors/jumbo';
 import { AldiProcessor } from './processors/aldi';
@@ -36,7 +40,7 @@ async function getActiveProcessors(config: any): Promise<string[]> {
       }
     } catch (error) {
       // Skip processors with missing or inaccessible input files
-      console.log(`   Skipping ${shopName.toUpperCase()}: input file not accessible`);
+      console.log(`   Skipping ${shopName.toUpperCase()}: input file not accessible - ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -144,14 +148,21 @@ async function cleanupOldFiles(directory: string, cutoffTime: number): Promise<v
 }
 
 async function main() {
+  const startTime = Date.now();
+  console.log(`🚀 Starting product processor at ${new Date().toISOString()}`);
+  
   try {
     // Setup global error handlers first
+    console.log('📝 Setting up global error handlers...');
     setupGlobalErrorHandlers();
 
     // Load configuration
+    console.log('⚙️  Loading configuration...');
     const config = await createConfig();
+    console.log(`✅ Configuration loaded - processing enabled: ${config.processing.parallelProcessing ? 'parallel' : 'sequential'}, batch size: ${config.processing.batchSize}`);
 
     // Initialize logger
+    console.log('🔍 Initializing logging system...');
     initializeLogger({
       logDir: config.directories.logs,
       level: config.logging.level as any,
@@ -161,6 +172,7 @@ async function main() {
     });
 
     const logger = getLogger();
+    console.log(`✅ Logging system initialized - level: ${config.logging.level}, file output: ${config.logging.fileOutput}`);
 
     // Clean up old logs and reports for processors that will run (if enabled)
     if (config.logging.cleanupOnStartup) {
@@ -301,24 +313,83 @@ async function main() {
     dashboard.start();
 
     // Start selected processors in parallel
-    const startTime = Date.now();
-    logger.info(`Starting product processing for shops: ${processorEntries.map(e => e.shop).join(', ')}`);
+    const processingStartTime = Date.now();
+    console.log(`🏭 Starting product processing for ${processorEntries.length} shops: ${processorEntries.map(e => e.shop.toUpperCase()).join(', ')}`);
+    
+    logger.info(`Starting product processing for shops: ${processorEntries.map(e => e.shop).join(', ')}`, {
+      context: {
+        shopsToProcess: processorEntries.map(e => e.shop),
+        processingMode: config.processing.parallelProcessing ? 'parallel' : 'sequential',
+        batchSize: config.processing.batchSize,
+        totalStartTime: Date.now()
+      }
+    });
 
+    logger.debug('Launching processor promises...');
     const settled = await Promise.allSettled(
-      processorEntries.map(e => e.processor.process())
+      processorEntries.map((e, index) => {
+        logger.debug(`Starting ${e.shop} processor (${index + 1}/${processorEntries.length})`);
+        return e.processor.process().then((result: any) => {
+          logger.info(`${e.shop} processor completed`, {
+            context: {
+              shop: e.shop,
+              results: {
+                success: result.success,
+                failed: result.failed,
+                skipped: result.skipped,
+                deduped: result.deduped
+              }
+            }
+          });
+          return result;
+        }).catch((error: any) => {
+          logger.error(`${e.shop} processor failed`, {
+            context: {
+              shop: e.shop,
+              error: serializeError(error)
+            }
+          });
+          throw error;
+        });
+      })
     );
+    
+    console.log('✅ All processors completed');
 
     // Stop the dashboard
     dashboard.stop();
 
     // Compile overall results
+    const totalProcessingTime = Date.now() - processingStartTime;
+    const totalApplicationTime = Date.now() - startTime;
+    
     const totalResults = {
       success: settled.reduce((sum, s: any) => sum + (s.status === 'fulfilled' ? (s.value?.success || 0) : 0), 0),
       failed: settled.reduce((sum, s: any) => sum + (s.status === 'fulfilled' ? (s.value?.failed || 0) : 0), 0),
       skipped: settled.reduce((sum, s: any) => sum + (s.status === 'fulfilled' ? (s.value?.skipped || 0) : 0), 0),
       deduped: settled.reduce((sum, s: any) => sum + (s.status === 'fulfilled' ? (s.value?.deduped || 0) : 0), 0),
-      duration: Date.now() - startTime
+      duration: totalProcessingTime,
+      totalApplicationDuration: totalApplicationTime
     };
+    
+    // Log processing completion with detailed breakdown
+    const successfulShops = settled.filter(s => s.status === 'fulfilled').length;
+    const failedShops = settled.filter(s => s.status === 'rejected').length;
+    
+    console.log(`📊 Processing completed: ${successfulShops}/${processorEntries.length} shops successful`);
+    console.log(`   Total processed: ${totalResults.success + totalResults.failed + totalResults.skipped}`);
+    console.log(`   Success: ${totalResults.success}, Failed: ${totalResults.failed}, Skipped: ${totalResults.skipped}, Deduped: ${totalResults.deduped}`);
+    console.log(`   Processing time: ${(totalProcessingTime / 1000).toFixed(2)}s, Total time: ${(totalApplicationTime / 1000).toFixed(2)}s`);
+    
+    if (failedShops > 0) {
+      console.log(`❌ Failed shops:`);
+      settled.forEach((s, index) => {
+        if (s.status === 'rejected') {
+          const shopName = processorEntries[index].shop;
+          console.log(`   ${shopName.toUpperCase()}: ${s.reason instanceof Error ? s.reason.message : String(s.reason)}`);
+        }
+      });
+    }
 
     // Generate overall summary report
     const summaryReport = {
@@ -355,7 +426,7 @@ async function main() {
 
       logger.info('Issue reports generated successfully');
     } catch (error) {
-      logger.warn('Failed to generate issue reports', { context: { error } });
+      logger.warn('Failed to generate issue reports', { context: { error: serializeError(error) } });
     }
 
     // Generate ML fallback analysis report
@@ -382,16 +453,27 @@ async function main() {
         logger.info('ML fallback analysis: No fallbacks detected');
       }
     } catch (error) {
-      logger.warn('Failed to generate ML fallback analysis', { context: { error } });
+      logger.warn('Failed to generate ML fallback analysis', { context: { error: serializeError(error) } });
     }
 
     logger.info('Product processing completed', {
       context: {
         results: totalResults,
         reportPath,
-        duration: `${(totalResults.duration / 1000).toFixed(2)} seconds`
+        timing: {
+          processingDuration: `${(totalResults.duration / 1000).toFixed(2)} seconds`,
+          totalApplicationDuration: `${(totalApplicationTime / 1000).toFixed(2)} seconds`,
+          setupTime: `${((processingStartTime - startTime) / 1000).toFixed(2)} seconds`
+        },
+        shopResults: {
+          successful: successfulShops,
+          failed: failedShops,
+          total: processorEntries.length
+        }
       }
     });
+    
+    console.log(`🎉 Application completed successfully at ${new Date().toISOString()}`);
 
     // Display completion summary
     console.log('\n'); // Add some space
@@ -399,11 +481,28 @@ async function main() {
 
     return totalResults;
   } catch (error) {
+    const errorTime = Date.now();
+    const elapsedTime = errorTime - startTime;
+    console.error(`💥 Fatal error after ${(elapsedTime / 1000).toFixed(2)}s at ${new Date().toISOString()}`);
     // If logger isn't initialized yet, log to console
+    const serializedError = serializeError(error);
     if (!getLogger) {
-      console.error('Fatal error during startup:', error);
+      console.error('Fatal error during startup:', {
+        error: serializedError,
+        stack: serializedError.stack,
+        timestamp: new Date().toISOString(),
+        elapsedTime: `${(elapsedTime / 1000).toFixed(2)}s`
+      });
     } else {
-      getLogger().critical('Fatal error during execution', error);
+      getLogger().critical('Fatal error during execution', error, {
+        timestamp: new Date().toISOString(),
+        elapsedTime: `${(elapsedTime / 1000).toFixed(2)}s`,
+        processInfo: {
+          nodeVersion: process.version,
+          platform: process.platform,
+          memoryUsage: process.memoryUsage()
+        }
+      });
     }
 
     process.exit(1);
@@ -435,21 +534,31 @@ async function cleanupResources(): Promise<void> {
 if (require.main === module) {
   main()
     .then(async results => {
+      console.log(`✨ Processing completed successfully - total processed: ${results.success + results.failed + results.skipped}`);
+      
       // Brief pause for summary to be visible
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Clean up resources
+      console.log('🧹 Cleaning up resources...');
       await cleanupResources();
+      console.log('👋 Goodbye!');
 
       // Normal exit
       process.exit(0);
     })
     .catch(async error => {
+      console.error('💀 Application failed - cleaning up and exiting...');
+      
       // Wait a moment for error messages to be visible
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Clean up resources
-      await cleanupResources();
+      try {
+        await cleanupResources();
+      } catch (cleanupError) {
+        console.warn('Warning: Cleanup failed:', cleanupError);
+      }
 
       // Error already logged in main function
       process.exit(1);

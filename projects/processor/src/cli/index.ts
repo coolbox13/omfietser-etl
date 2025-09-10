@@ -1,6 +1,10 @@
 // CLI interface for Supermarket Processor
+import dotenv from 'dotenv';
 import { Command } from 'commander';
 import { initializeLogger, getLogger } from '../infrastructure/logging';
+
+// Load environment variables from .env file
+dotenv.config();
 import { initializeDatabaseAdapter, closeDatabaseAdapter } from '../infrastructure/database';
 import { initializeJobManager, getJobManager } from '../api/services/job-manager';
 import { setupGlobalErrorHandlers } from '../utils/error';

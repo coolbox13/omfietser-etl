@@ -110,6 +110,69 @@ Create a minimal test that:
 3. Verifies all three state variables are properly set
 4. Calls `processBatch()` with minimal raw product data
 
+## Resolution Summary
+
+- Ensured the adapter always awaits initialization at the start of processing to eliminate race conditions.
+- Fixed database inserts for processing_errors to include the NOT NULL shop_type column, removing 23502 constraint violations.
+
+### Code Changes
+
+1) Defensive initialization inside processing
+- File: src/adapters/database-processor-adapter.ts
+- Change: processBatch now calls await this.waitForInitialization() before any validation or processing.
+
+2) Include shop_type in processing_errors inserts (single and batch)
+- File: src/infrastructure/database/postgres-adapter.ts
+- Change: Updated INSERT columns to include shop_type and mapped parameters accordingly in:
+  - insertProcessingError
+  - insertProcessingErrors
+
+### Why this fixes the issue
+- The implicit await in processBatch prevents any timing gap between construction and first use, even if the caller forgets to await waitForInitialization().
+- The processing_errors table declares shop_type NOT NULL; inserts now explicitly provide it, preventing 23502 violations and allowing proper error recording.
+
+## Verification
+
+### 1) Smoke test (CLI)
+Attempted: npm run cli -- process --shop-type ah --batch-size 5
+
+- Result on this machine: Failed early due to missing DB environment variables.
+- To run locally, set the following env vars and retry:
+  - POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
+
+Example (replace placeholders):
+- POSTGRES_HOST={{POSTGRES_HOST}}
+- POSTGRES_DB={{POSTGRES_DB}}
+- POSTGRES_USER={{POSTGRES_USER}}
+- POSTGRES_PASSWORD={{POSTGRES_PASSWORD}}
+
+Command:
+- npm run cli -- process --shop-type ah --batch-size 5
+
+Expected:
+- No "Adapter not fully initialized" errors
+- Any batch errors are recorded successfully without NOT NULL violations on processing_errors.shop_type
+
+Attempt notes:
+- Tried an override with POSTGRES_HOST=localhost to reach a locally exposed DB port. Result: connection refused (ECONNREFUSED). Ensure the PostgreSQL service is running and accessible on the host/port defined in .env (or use docker compose to start services and verify port mappings).
+
+### 2) Unit tests added
+- src/__tests__/adapters/database-processor-adapter.init-flow.test.ts
+  - Validates processBatch works even without explicitly awaiting waitForInitialization().
+
+- src/__tests__/infrastructure/database/postgres-adapter-processing-errors.test.ts
+  - Verifies SQL and params for processing_errors inserts include shop_type for both single and batch inserts.
+
+Run:
+- npm test -- database-processor-adapter.init-flow
+- npm test -- postgres-adapter-processing-errors
+
+Note: Running the entire test suite currently shows 1 failing spec in existing tests (structure validation rejection expectation). This pre-existing test expects processBatch to throw, but current processBatch returns a result with errors after catching. If you want, I can align that test with the implemented behavior.
+
+## Next Steps
+- Provide DB env variables to run the CLI/API smoke test against a real PostgreSQL instance.
+- Optionally update the failing legacy test to assert returned error results instead of expecting a thrown error.
+
 ## Additional Context
 - System: TypeScript application in Docker container
 - Database: PostgreSQL with NOT NULL constraints

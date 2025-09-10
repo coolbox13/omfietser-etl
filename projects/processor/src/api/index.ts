@@ -1,6 +1,10 @@
 // Main entry point for the Supermarket Processor HTTP API
+import dotenv from 'dotenv';
 import { initializeLogger, getLogger } from '../infrastructure/logging';
 import { ApiServer, createServerConfig, setupGracefulShutdown } from './server';
+
+// Load environment variables from .env file
+dotenv.config();
 
 async function main() {
   let server: ApiServer | null = null;

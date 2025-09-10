@@ -18,6 +18,8 @@ import {
 export interface StructureValidationOptions {
   /** Whether to allow extra fields not in template (default: false) */
   allowExtraFields?: boolean;
+  /** Specific extra fields that are allowed (ignored from extraFields) even when allowExtraFields is false */
+  allowedExtraFields?: string[];
   /** Whether to perform deep type validation (default: true) */
   validateTypes?: boolean;
   /** Whether to validate field values (not just presence) (default: false) */
@@ -82,8 +84,13 @@ export class StructureValidator {
     if (!opts.allowExtraFields) {
       const productFields = Object.keys(product);
       const requiredFieldsSet = new Set(REQUIRED_FIELDS); // Convert to Set for O(1) lookup
+      const allowedExtras = new Set((opts.allowedExtraFields || []).map(f => String(f)));
       for (const field of productFields) {
         if (!requiredFieldsSet.has(field as RequiredField)) {
+          if (allowedExtras.has(field)) {
+            // Explicitly allowed extra field: ignore
+            continue;
+          }
           result.extraFields.push(field);
           result.isValid = false;
         }
