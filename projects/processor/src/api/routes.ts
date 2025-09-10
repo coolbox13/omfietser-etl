@@ -3,7 +3,14 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { getJobManager } from './services/job-manager';
 import { getSyncDatabaseAdapter } from '../infrastructure/database';
 import { successResponse, errorResponse, paginatedResponse } from './middleware';
-import { createMiddleware } from './middleware';
+import { createMiddleware, validateRequest } from './middleware';
+import {
+  createJobSchema,
+  startJobSchema,
+  cancelJobSchema,
+  processShopSchema,
+  webhookN8nSchema
+} from './validation';
 
 export function createApiRoutes(): Router {
   const router = Router();
@@ -18,13 +25,9 @@ export function createApiRoutes(): Router {
   // =============================================
 
   // Create a new processing job
-  router.post('/jobs', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/jobs', validateRequest(createJobSchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { shop_type, batch_size, metadata } = req.body;
-
-      if (!shop_type) {
-        return res.status(400).json(errorResponse('shop_type is required'));
-      }
 
       const jobManager = getJobManager();
       const job = await jobManager.createJob({
@@ -41,7 +44,7 @@ export function createApiRoutes(): Router {
   });
 
   // Start a processing job
-  router.post('/jobs/:jobId/start', middleware.validateJobId, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/jobs/:jobId/start', validateRequest(startJobSchema), middleware.validateJobId, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { jobId } = req.params;
       const jobManager = getJobManager();
@@ -56,7 +59,7 @@ export function createApiRoutes(): Router {
   });
 
   // Cancel a processing job
-  router.post('/jobs/:jobId/cancel', middleware.validateJobId, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/jobs/:jobId/cancel', validateRequest(cancelJobSchema), middleware.validateJobId, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { jobId } = req.params;
       const { reason } = req.body;
@@ -304,7 +307,7 @@ export function createApiRoutes(): Router {
   // =============================================
 
   // Process specific shop
-  router.post('/process/:shopType', middleware.validateShopType, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/process/:shopType', validateRequest(processShopSchema), middleware.validateShopType, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { shopType } = req.params;
       const { batch_size, metadata } = req.body;
@@ -452,13 +455,9 @@ export function createApiRoutes(): Router {
   // =============================================
 
   // N8N webhook endpoint
-  router.post('/webhook/n8n', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/webhook/n8n', validateRequest(webhookN8nSchema), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { action, shop_type, batch_id, metadata } = req.body;
-
-      if (!action || !shop_type) {
-        return res.status(400).json(errorResponse('action and shop_type are required'));
-      }
 
       const jobManager = getJobManager();
 

@@ -1,5 +1,6 @@
 // Express middleware for the API server
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { getLogger } from '../infrastructure/logging';
 
 export interface MiddlewareConfig {
@@ -201,6 +202,56 @@ export function createMiddleware(config: MiddlewareConfig) {
     next();
   };
 
+  // Schema validation middleware using Zod
+  const validateSchema = <T>(schema: z.ZodSchema<T>) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const result = schema.parse(req.body);
+        // Replace req.body with validated and transformed data
+        req.body = result;
+        next();
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          const validationErrors = error.errors.map(err => {
+            const errorDetail: any = {
+              field: err.path.join('.'),
+              message: err.message
+            };
+            
+            // Add received value if it exists (not all ZodIssue types have it)
+            if ('received' in err) {
+              errorDetail.received = err.received;
+            }
+            
+            return errorDetail;
+          });
+
+          logger.warn('Schema validation failed', {
+            context: {
+              method: req.method,
+              url: req.url,
+              errors: validationErrors,
+              requestId: (req as ApiRequest).requestId
+            }
+          });
+
+          return res.status(400).json({
+            success: false,
+            error: 'Validation failed',
+            details: {
+              message: 'Request body contains invalid data',
+              errors: validationErrors
+            },
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // For non-Zod errors, pass to general error handler
+        next(error);
+      }
+    };
+  };
+
   return {
     cors,
     timeout,
@@ -208,13 +259,14 @@ export function createMiddleware(config: MiddlewareConfig) {
     errorHandler,
     validateShopType,
     validateJobId,
-    validatePagination
+    validatePagination,
+    validateSchema
   };
 }
 
 // Helper functions
 function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 function isValidUUID(str: string): boolean {
@@ -263,5 +315,57 @@ export function paginatedResponse(data: any[], total: number, limit: number, off
       hasMore: offset + limit < total
     },
     timestamp: new Date().toISOString()
+  };
+}
+
+// Export validateRequest as an alias for validateSchema for use in routes
+export function validateRequest<T>(schema: z.ZodSchema<T>) {
+  const logger = getLogger();
+  
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = schema.parse(req.body);
+      // Replace req.body with validated and transformed data
+      req.body = result;
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = error.errors.map(err => {
+          const errorDetail: any = {
+            field: err.path.join('.'),
+            message: err.message
+          };
+          
+          // Add received value if it exists (not all ZodIssue types have it)
+          if ('received' in err) {
+            errorDetail.received = err.received;
+          }
+          
+          return errorDetail;
+        });
+
+        logger.warn('Schema validation failed', {
+          context: {
+            method: req.method,
+            url: req.url,
+            errors: validationErrors,
+            requestId: (req as ApiRequest).requestId
+          }
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: {
+            message: 'Request body contains invalid data',
+            errors: validationErrors
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // For non-Zod errors, pass to general error handler
+      next(error);
+    }
   };
 }
