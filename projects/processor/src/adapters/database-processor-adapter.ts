@@ -88,21 +88,21 @@ export class DatabaseProcessorAdapter extends EventEmitter {
 
   private async initializeAdapter(): Promise<void> {
     if (this.initializationPromise) {
-      this.logger.error('TRACE: Returning existing initialization promise');
+      this.logger.debug('Returning existing initialization promise');
       return this.initializationPromise;
     }
 
-    this.logger.error('TRACE: Starting new initialization promise');
+    this.logger.debug('Starting new initialization promise');
 
     this.initializationPromise = (async () => {
       try {
-        this.logger.error('TRACE: Starting database adapter initialization');
+        this.logger.debug('Starting database adapter initialization');
         this.dbAdapter = await getDatabaseAdapter();
-        this.logger.error('TRACE: Database adapter obtained successfully', { dbAdapterExists: !!this.dbAdapter });
+        this.logger.debug('Database adapter obtained successfully', { dbAdapterExists: !!this.dbAdapter });
         this.initializeProcessor();
-        this.logger.error('TRACE: Processor initialized successfully', { processorExists: !!this.processorInstance });
+        this.logger.debug('Processor initialized successfully', { processorExists: !!this.processorInstance });
         this.initialized = true;
-        this.logger.error('TRACE: DatabaseProcessorAdapter fully initialized', { initialized: this.initialized });
+        this.logger.debug('DatabaseProcessorAdapter fully initialized', { initialized: this.initialized });
       } catch (error) {
         this.logger.error('DEBUG: Failed to initialize database adapter', { 
           error: error instanceof Error ? { message: error.message, stack: error.stack } : error 
@@ -112,7 +112,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
       }
     })();
 
-    this.logger.error('TRACE: About to return initialization promise');
+    this.logger.debug('About to return initialization promise');
     return this.initializationPromise;
   }
 
@@ -160,7 +160,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
   // =============================================
 
   public async processBatch(rawProducts: RawProduct[]): Promise<ProcessingBatchResult> {
-    this.logger.error('TRACE: processBatch called', { 
+    this.logger.debug('processBatch called', { 
       initialized: this.initialized, 
       processorExists: !!this.processorInstance, 
       dbAdapterExists: !!this.dbAdapter,
@@ -169,7 +169,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
 
     // Ensure adapter is initialized to avoid race conditions
     await this.waitForInitialization();
-    this.logger.error('TRACE: after waitForInitialization', { 
+    this.logger.debug('after waitForInitialization', { 
       initialized: this.initialized, 
       processorExists: !!this.processorInstance, 
       dbAdapterExists: !!this.dbAdapter,
@@ -189,7 +189,7 @@ export class DatabaseProcessorAdapter extends EventEmitter {
       if (!this.processorInstance) specificError += ' processorInstance=null';
       if (!this.dbAdapter) specificError += ' dbAdapter=null';
       
-      this.logger.error('TRACE: processBatch failing - adapter not fully initialized', details);
+      this.logger.debug('processBatch failing - adapter not fully initialized', details);
       throw new Error(specificError);
     }
 
@@ -321,7 +321,9 @@ export class DatabaseProcessorAdapter extends EventEmitter {
 
         // If enforcement is enabled and compliance is not 100%, fail the batch
         if (this.config.enforceStructureValidation && result.structureValidationResults.compliant < result.structureValidationResults.total) {
-          throw new Error(`Structure compliance failed: ${result.structureValidationResults.violations.length} violations found`);
+          const complianceError = new Error(`Structure compliance failed: ${result.structureValidationResults.violations.length} violations found`);
+          complianceError.name = 'StructureComplianceError';
+          throw complianceError;
         }
       }
 
@@ -339,6 +341,11 @@ export class DatabaseProcessorAdapter extends EventEmitter {
       return result;
 
     } catch (error) {
+      // Re-throw structure compliance errors instead of converting to result
+      if (error instanceof Error && error.name === 'StructureComplianceError') {
+        throw error;
+      }
+
       this.logger.error('Batch processing failed', {
         context: {
           jobId: this.config.jobId,

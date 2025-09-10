@@ -132,7 +132,10 @@ describe('PostgreSQLAdapter', () => {
 
         const result = await adapter.insertProcessedProducts(mockProducts);
 
-        expect(mockStructureValidator.validateCompleteStructure).toHaveBeenCalledWith(mockProducts[0]);
+        expect(mockStructureValidator.validateCompleteStructure).toHaveBeenCalledWith(mockProducts[0], {
+          allowExtraFields: false,
+          allowedExtraFields: ['job_id', 'raw_product_id', 'external_id', 'schema_version']
+        });
         expect(result).toHaveLength(1);
       });
 

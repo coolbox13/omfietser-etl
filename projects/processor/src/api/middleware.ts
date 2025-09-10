@@ -166,7 +166,7 @@ export function createMiddleware(config: MiddlewareConfig) {
   const validateJobId = (req: Request, res: Response, next: NextFunction) => {
     const { jobId } = req.params;
     
-    console.log('DEBUG validateJobId:', { jobId, isValid: jobId ? isValidJobId(jobId) : 'no jobId' });
+    // Debug logging removed for production
     
     if (jobId && !isValidJobId(jobId)) {
       return res.status(400).json({

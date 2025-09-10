@@ -79,7 +79,9 @@ describe('DatabaseProcessorAdapter', () => {
       expect(adapter.getConfig()).toEqual({
         ...config,
         enforceStructureValidation: true,
-        schemaVersion: CURRENT_SCHEMA_VERSION
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        allowExtraMetaFields: true,
+        allowedExtraFields: ['job_id', 'raw_product_id', 'external_id', 'schema_version']
       });
     });
 
@@ -391,17 +393,46 @@ describe('DatabaseProcessorAdapter', () => {
       },
       {
         shopType: 'jumbo',
-        rawData: { productId: 'jumbo-789', sku: 'jumbo-sku-012' },
+        rawData: {
+          product: {
+            id: 'jumbo-789',
+            title: 'Jumbo Product',
+            prices: {
+              price: 399  // Price in cents as JumboProcessor expects
+            },
+            inAssortment: true,
+            availability: {
+              availability: 'AVAILABLE',
+              isAvailable: true
+            }
+          }
+        },
         expected: 'jumbo-789'
       },
       {
         shopType: 'aldi',
-        rawData: { articleNumber: 'aldi-345' },
+        rawData: { 
+          articleNumber: 'aldi-345',
+          title: 'Aldi Product',
+          currentPrice: 1.99,
+          shopType: 'ALDI',
+          images: [{ url: 'https://example.com/aldi.jpg', width: 300 }],
+          available: true
+        },
         expected: 'aldi-345'
       },
       {
         shopType: 'plus',
-        rawData: { productNumber: 'plus-678' },
+        rawData: {
+          productNumber: 'plus-678',  // For extractExternalId method
+          PLP_Str: {
+            SKU: 'plus-678',
+            Name: 'Plus Product',
+            OriginalPrice: '2.49',
+            IsAvailable: true,
+            Categories: { List: [{ Name: 'Food' }] }
+          }
+        },
         expected: 'plus-678'
       }
     ];
@@ -415,7 +446,7 @@ describe('DatabaseProcessorAdapter', () => {
           id: 'raw-1',
           shop_type: shopType,
           job_id: 'test-job-123',
-          raw_data: { ...rawData, title: 'Test Product', price: 2.99 },
+          raw_data: rawData,
           scraped_at: new Date(),
           created_at: new Date()
         }];
@@ -427,6 +458,8 @@ describe('DatabaseProcessorAdapter', () => {
         });
 
         const result = await shopAdapter.processBatch(mockRawProducts);
+
+        // All staging products should be successfully created
 
         expect(result.stagingProducts[0].external_id).toBe(expected);
         expect(result.processedProducts[0].external_id).toBe(expected);
